@@ -1,0 +1,20 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# IDE
+.vs/
+.vscode/
+
+# Project Specific
+.env
+traces/
+conversations/
+incoming_data/
+
+# OS
+.DS_Store
