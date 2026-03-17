@@ -1,0 +1,76 @@
+using dotenv.net;
+
+namespace InvestigatorAgent.Configuration;
+
+/// <summary>
+/// Loads and validates agent configuration from environment variables,
+/// populated from a .env file using dotenv.net.
+/// </summary>
+public static class ConfigurationLoader
+{
+    /// <summary>
+    /// Loads configuration from the .env file in the current working directory
+    /// and returns a validated <see cref="AgentSettings"/> record.
+    /// </summary>
+    /// <returns>A populated and validated <see cref="AgentSettings"/> instance.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when any required configuration variable is missing or invalid.
+    /// </exception>
+    public static AgentSettings Load()
+    {
+        DotEnv.Load(options: new DotEnvOptions(probeForEnv: true, ignoreExceptions: true));
+
+        string openRouterApiKey = GetRequired("OPENROUTER_API_KEY");
+        string modelName = GetRequired("MODEL_NAME");
+        string temperatureRaw = GetRequired("TEMPERATURE");
+
+        if (!double.TryParse(temperatureRaw, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double temperature))
+        {
+            throw new InvalidOperationException(
+                $"Configuration error: TEMPERATURE value '{temperatureRaw}' is not a valid number.");
+        }
+
+        int? maxTokens = null;
+        string? maxTokensRaw = Environment.GetEnvironmentVariable("MAX_TOKENS");
+        if (!string.IsNullOrWhiteSpace(maxTokensRaw))
+        {
+            if (!int.TryParse(maxTokensRaw, out int parsedMaxTokens))
+            {
+                throw new InvalidOperationException(
+                    $"Configuration error: MAX_TOKENS value '{maxTokensRaw}' is not a valid integer.");
+            }
+
+            maxTokens = parsedMaxTokens;
+        }
+
+        return new AgentSettings
+        {
+            OpenRouterApiKey = openRouterApiKey,
+            ModelName = modelName,
+            Temperature = temperature,
+            MaxTokens = maxTokens,
+            TraceOutputDir = Environment.GetEnvironmentVariable("TRACE_OUTPUT_DIR"),
+            ConversationOutputDir = Environment.GetEnvironmentVariable("CONVERSATION_OUTPUT_DIR"),
+            DataDirectory = Environment.GetEnvironmentVariable("DATA_DIRECTORY"),
+        };
+    }
+
+    /// <summary>
+    /// Reads a required environment variable and throws a descriptive exception if absent.
+    /// </summary>
+    /// <param name="key">The name of the environment variable.</param>
+    /// <returns>The value of the environment variable.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the variable is missing or empty.</exception>
+    private static string GetRequired(string key)
+    {
+        string? value = Environment.GetEnvironmentVariable(key);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException(
+                $"Configuration error: required environment variable '{key}' is missing or empty. " +
+                $"Ensure it is set in your .env file.");
+        }
+
+        return value;
+    }
+}
