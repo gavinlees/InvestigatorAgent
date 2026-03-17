@@ -1,6 +1,7 @@
-using InvestigatorAgent.Configuration;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.SemanticKernel.Connectors.OpenAI;
+using System.Net.Http.Headers;
 
 namespace InvestigatorAgent.Agent;
 
@@ -13,16 +14,35 @@ public sealed class AgentOrchestrator
     private readonly IChatCompletionService _chatService;
     private readonly ChatHistory _chatHistory;
 
-    /// <summary>
-    /// Initialises the orchestrator with a configured Semantic Kernel instance.
-    /// Adds the system prompt to the conversation history.
-    /// </summary>
-    /// <param name="kernel">A configured Semantic Kernel instance.</param>
     public AgentOrchestrator(Kernel kernel)
     {
         _chatService = kernel.GetRequiredService<IChatCompletionService>();
         _chatHistory = new ChatHistory();
         _chatHistory.AddSystemMessage(SystemPrompts.InvestigatorAgent);
+    }
+
+    /// <summary>
+    /// Static helper to build a Kernel configured for OpenRouter.
+    /// Injects required headers to avoid 400 Forbidden/Bad Request.
+    /// </summary>
+    public static Kernel CreateOpenRouterKernel(string modelId, string apiKey)
+    {
+        var httpClient = new HttpClient();
+        httpClient.DefaultRequestHeaders.Add("HTTP-Referer", "https://github.com/semantic-kernel-investigator");
+        httpClient.DefaultRequestHeaders.Add("X-Title", "Investigator Agent");
+
+        var builder = Kernel.CreateBuilder();
+
+#pragma warning disable SKEXP0010
+        builder.AddOpenAIChatCompletion(
+            modelId: modelId,
+            apiKey: apiKey,
+            endpoint: new Uri("https://openrouter.ai/api/v1"),
+            httpClient: httpClient
+        );
+#pragma warning restore SKEXP0010
+
+        return builder.Build();
     }
 
     /// <summary>
@@ -43,12 +63,18 @@ public sealed class AgentOrchestrator
     /// </summary>
     /// <param name="userMessage">The message from the user.</param>
     /// <returns>The agent's response content.</returns>
-    public async Task<string> SendMessageAsync(string userMessage)
+    public async Task<string> SendMessageAsync(string userMessage, double temperature = 0.0)
     {
         _chatHistory.AddUserMessage(userMessage);
 
-        IReadOnlyList<ChatMessageContent> result = await _chatService.GetChatMessageContentsAsync(
-            _chatHistory
+        OpenAIPromptExecutionSettings executionSettings = new()
+        {
+             Temperature = (float)temperature
+        };
+
+        var result = await _chatService.GetChatMessageContentsAsync(
+            _chatHistory,
+            executionSettings: executionSettings
         );
 
         string response = result[0].Content ?? string.Empty;

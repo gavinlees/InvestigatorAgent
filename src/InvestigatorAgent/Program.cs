@@ -14,26 +14,18 @@ try
     Console.WriteLine("========================================");
     Console.ResetColor();
 
-    // 1. Load configuration
+    // 1. Load environment and configuration
+    ConfigurationLoader.LoadEnv();
     AgentSettings settings = ConfigurationLoader.Load();
 
-    // 2. Build Semantic Kernel with OpenRouter (OpenAI connector)
-    var builder = Kernel.CreateBuilder();
-
-    #pragma warning disable SKEXP0010 // OpenAI connector is currently experimental
-    builder.AddOpenAIChatCompletion(
-        modelId: settings.ModelName,
-        apiKey: settings.OpenRouterApiKey,
-        endpoint: new Uri("https://openrouter.ai/api/v1")
-    );
-    #pragma warning restore SKEXP0010
-
-    Kernel kernel = builder.Build();
+    // 2. Build Semantic Kernel with OpenRouter (encapsulated helper)
+    Kernel kernel = AgentOrchestrator.CreateOpenRouterKernel(settings.ModelName, settings.OpenRouterApiKey);
 
     // 3. Initialise Agent Orchestrator
     var agent = new AgentOrchestrator(kernel);
 
-    Console.WriteLine("\nAgent initialised. Type 'exit' or 'quit' to end the session.\n");
+    Console.WriteLine($"\nAgent initialised with model: {settings.ModelName}");
+    Console.WriteLine("Type 'exit' or 'quit' to end the session.\n");
 
     // 4. REPL Loop
     while (true)
@@ -57,7 +49,8 @@ try
 
         try
         {
-            string response = await agent.SendMessageAsync(input);
+            // Pass temperature from settings
+            string response = await agent.SendMessageAsync(input, settings.Temperature);
 
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.Write("Agent: ");

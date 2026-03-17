@@ -9,17 +9,26 @@ namespace InvestigatorAgent.Configuration;
 public static class ConfigurationLoader
 {
     /// <summary>
-    /// Loads configuration from the .env file in the current working directory
-    /// and returns a validated <see cref="AgentSettings"/> record.
+    /// Loads environment variables from the .env file in the current working directory.
+    /// Should be called once at application startup.
     /// </summary>
-    /// <returns>A populated and validated <see cref="AgentSettings"/> instance.</returns>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown when any required configuration variable is missing or invalid.
-    /// </exception>
+    public static void LoadEnv()
+    {
+        string envPath = Path.Combine(Directory.GetCurrentDirectory(), ".env");
+        if (File.Exists(envPath))
+        {
+            DotEnv.Load(options: new DotEnvOptions(
+                envFilePaths: new[] { envPath },
+                ignoreExceptions: true));
+        }
+    }
+
+    /// <summary>
+    /// Loads and returns a validated <see cref="AgentSettings"/> record from 
+    /// currently available environment variables.
+    /// </summary>
     public static AgentSettings Load()
     {
-        DotEnv.Load(options: new DotEnvOptions(probeForEnv: true, ignoreExceptions: true));
-
         string openRouterApiKey = GetRequired("OPENROUTER_API_KEY");
         string modelName = GetRequired("MODEL_NAME");
         string temperatureRaw = GetRequired("TEMPERATURE");
