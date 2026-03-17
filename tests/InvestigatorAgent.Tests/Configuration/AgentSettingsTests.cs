@@ -14,7 +14,7 @@ public sealed class AgentSettingsTests : IDisposable
     /// Verifies that settings load successfully when all required environment variables are present.
     /// </summary>
     [Fact]
-    public void Load_WithAllRequiredVariables_ReturnsPopulatedSettings()
+    public void Load_WithOpenRouterApiKey_ReturnsPopulatedSettings()
     {
         // Arrange
         SetEnv("OPENROUTER_API_KEY", "test-key");
@@ -27,6 +27,26 @@ public sealed class AgentSettingsTests : IDisposable
         // Assert
         settings.OpenRouterApiKey.Should().Be("test-key");
         settings.ModelName.Should().Be("openai/gpt-4o-mini");
+        settings.Temperature.Should().Be(0.5);
+    }
+
+    /// <summary>
+    /// Verifies that settings load successfully when Google API key is present.
+    /// </summary>
+    [Fact]
+    public void Load_WithGoogleApiKey_ReturnsPopulatedSettings()
+    {
+        // Arrange
+        SetEnv("GOOGLE_API_KEY", "google-test-key");
+        SetEnv("MODEL_NAME", "gemini-1.5-flash");
+        SetEnv("TEMPERATURE", "0.5");
+
+        // Act
+        AgentSettings settings = ConfigurationLoader.Load();
+
+        // Assert
+        settings.GoogleApiKey.Should().Be("google-test-key");
+        settings.ModelName.Should().Be("gemini-1.5-flash");
         settings.Temperature.Should().Be(0.5);
     }
 
@@ -74,19 +94,19 @@ public sealed class AgentSettingsTests : IDisposable
     /// Verifies that a missing OPENROUTER_API_KEY throws an InvalidOperationException with a helpful message.
     /// </summary>
     [Fact]
-    public void Load_WithMissingApiKey_ThrowsInvalidOperationException()
+    public void Load_WithBothApiKeysMissing_ThrowsInvalidOperationException()
     {
         // Arrange
         SetEnv("MODEL_NAME", "openai/gpt-4o-mini");
         SetEnv("TEMPERATURE", "0.0");
-        // OPENROUTER_API_KEY intentionally not set
+        // Neither key is set
 
         // Act
         Action act = () => ConfigurationLoader.Load();
 
         // Assert
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*OPENROUTER_API_KEY*");
+            .WithMessage("*either 'OPENROUTER_API_KEY' or 'GOOGLE_API_KEY' must be present*");
     }
 
     /// <summary>

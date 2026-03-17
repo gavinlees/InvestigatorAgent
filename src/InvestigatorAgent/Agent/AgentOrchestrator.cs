@@ -1,6 +1,7 @@
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
+using Microsoft.SemanticKernel.Connectors.Google;
 using System.Net.Http.Headers;
 
 namespace InvestigatorAgent.Agent;
@@ -46,6 +47,23 @@ public sealed class AgentOrchestrator
     }
 
     /// <summary>
+    /// Static helper to build a Kernel configured for Google AI (Gemini).
+    /// </summary>
+    public static Kernel CreateGoogleKernel(string modelId, string apiKey)
+    {
+        var builder = Kernel.CreateBuilder();
+
+#pragma warning disable SKEXP0070
+        builder.AddGoogleAIGeminiChatCompletion(
+            modelId: modelId,
+            apiKey: apiKey
+        );
+#pragma warning restore SKEXP0070
+
+        return builder.Build();
+    }
+
+    /// <summary>
     /// Initialises the orchestrator with a specific chat completion service.
     /// Intended for use in unit tests where the service is substituted.
     /// </summary>
@@ -67,10 +85,24 @@ public sealed class AgentOrchestrator
     {
         _chatHistory.AddUserMessage(userMessage);
 
-        OpenAIPromptExecutionSettings executionSettings = new()
+        PromptExecutionSettings? executionSettings = null;
+
+        // Determine settings based on the service type
+        if (_chatService.GetType().Name.Contains("Gemini"))
         {
-             Temperature = (float)temperature
-        };
+            executionSettings = new GeminiPromptExecutionSettings
+            {
+                Temperature = (float)temperature
+            };
+        }
+        else
+        {
+            // Default to OpenAI settings for OpenRouter/OpenAI
+            executionSettings = new OpenAIPromptExecutionSettings
+            {
+                Temperature = (float)temperature
+            };
+        }
 
         var result = await _chatService.GetChatMessageContentsAsync(
             _chatHistory,
@@ -81,6 +113,57 @@ public sealed class AgentOrchestrator
         _chatHistory.AddAssistantMessage(response);
 
         return response;
+    }
+
+    /// <summary>
+    /// Sends a user message to the agent and yields the response as a stream.
+    /// Updates the conversation history with both the user message and the full agent response.
+    /// </summary>
+    /// <param name="userMessage">The message from the user.</param>
+    /// <param name="temperature">The sampling temperature.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>An asynchronous stream of the agent's response chunks.</returns>
+    public async IAsyncEnumerable<string> SendMessageStreamAsync(
+        string userMessage, 
+        double temperature = 0.0, 
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        _chatHistory.AddUserMessage(userMessage);
+
+        PromptExecutionSettings? executionSettings = null;
+
+        // Determine settings based on the service type
+        if (_chatService.GetType().Name.Contains("Gemini"))
+        {
+            executionSettings = new GeminiPromptExecutionSettings
+            {
+                Temperature = (float)temperature
+            };
+        }
+        else
+        {
+            // Default to OpenAI settings for OpenRouter/OpenAI
+            executionSettings = new OpenAIPromptExecutionSettings
+            {
+                Temperature = (float)temperature
+            };
+        }
+
+        string fullResponse = string.Empty;
+
+        await foreach (var content in _chatService.GetStreamingChatMessageContentsAsync(
+            _chatHistory,
+            executionSettings: executionSettings,
+            cancellationToken: cancellationToken))
+        {
+            if (content.Content != null)
+            {
+                fullResponse += content.Content;
+                yield return content.Content;
+            }
+        }
+
+        _chatHistory.AddAssistantMessage(fullResponse);
     }
 
     /// <summary>

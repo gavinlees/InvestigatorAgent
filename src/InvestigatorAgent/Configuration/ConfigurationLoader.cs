@@ -29,7 +29,15 @@ public static class ConfigurationLoader
     /// </summary>
     public static AgentSettings Load()
     {
-        string openRouterApiKey = GetRequired("OPENROUTER_API_KEY");
+        string? openRouterApiKey = Environment.GetEnvironmentVariable("OPENROUTER_API_KEY");
+        string? googleApiKey = Environment.GetEnvironmentVariable("GOOGLE_API_KEY");
+
+        if (string.IsNullOrWhiteSpace(openRouterApiKey) && string.IsNullOrWhiteSpace(googleApiKey))
+        {
+            throw new InvalidOperationException(
+                "Configuration error: either 'OPENROUTER_API_KEY' or 'GOOGLE_API_KEY' must be present in environment variables.");
+        }
+
         string modelName = GetRequired("MODEL_NAME");
         string temperatureRaw = GetRequired("TEMPERATURE");
 
@@ -55,6 +63,7 @@ public static class ConfigurationLoader
         return new AgentSettings
         {
             OpenRouterApiKey = openRouterApiKey,
+            GoogleApiKey = googleApiKey,
             ModelName = modelName,
             Temperature = temperature,
             MaxTokens = maxTokens,

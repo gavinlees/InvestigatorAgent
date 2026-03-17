@@ -6,10 +6,13 @@ namespace InvestigatorAgent.Configuration;
 /// </summary>
 public record AgentSettings
 {
-    /// <summary>Gets the OpenRouter API key used to authenticate LLM requests.</summary>
-    public required string OpenRouterApiKey { get; init; }
+    /// <summary>Gets the optional OpenRouter API key used to authenticate LLM requests.</summary>
+    public string? OpenRouterApiKey { get; init; }
 
-    /// <summary>Gets the model identifier to use for LLM completions (e.g., openai/gpt-4o-mini).</summary>
+    /// <summary>Gets the Google API key used to authenticate LLM requests (Direct Gemini API).</summary>
+    public string? GoogleApiKey { get; init; }
+
+    /// <summary>Gets the model identifier to use for LLM completions (e.g., gemini-1.5-flash).</summary>
     public required string ModelName { get; init; }
 
     /// <summary>Gets the sampling temperature for LLM responses (0.0 to 1.0).</summary>

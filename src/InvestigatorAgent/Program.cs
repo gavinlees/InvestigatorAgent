@@ -18,8 +18,16 @@ try
     ConfigurationLoader.LoadEnv();
     AgentSettings settings = ConfigurationLoader.Load();
 
-    // 2. Build Semantic Kernel with OpenRouter (encapsulated helper)
-    Kernel kernel = AgentOrchestrator.CreateOpenRouterKernel(settings.ModelName, settings.OpenRouterApiKey);
+    // 2. Build Semantic Kernel (encapsulated helper)
+    Kernel kernel;
+    if (!string.IsNullOrWhiteSpace(settings.GoogleApiKey))
+    {
+        kernel = AgentOrchestrator.CreateGoogleKernel(settings.ModelName, settings.GoogleApiKey);
+    }
+    else
+    {
+        kernel = AgentOrchestrator.CreateOpenRouterKernel(settings.ModelName, settings.OpenRouterApiKey!);
+    }
 
     // 3. Initialise Agent Orchestrator
     var agent = new AgentOrchestrator(kernel);
@@ -49,13 +57,17 @@ try
 
         try
         {
-            // Pass temperature from settings
-            string response = await agent.SendMessageAsync(input, settings.Temperature);
-
             Console.ForegroundColor = ConsoleColor.Yellow;
             Console.Write("Agent: ");
             Console.ResetColor();
-            Console.WriteLine(response);
+
+            // Use the streaming method to write chunks as they arrive
+            await foreach (var chunk in agent.SendMessageStreamAsync(input, settings.Temperature))
+            {
+                Console.Write(chunk);
+            }
+            
+            Console.WriteLine();
             Console.WriteLine();
         }
         catch (Exception ex)
