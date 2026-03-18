@@ -36,6 +36,9 @@ try
     var jiraPlugin = new JiraPlugin(mapper);
     kernel.Plugins.AddFromObject(jiraPlugin, "JiraPlugin");
 
+    var analysisPlugin = new AnalysisPlugin(settings.DataDirectory ?? "incoming_data/", mapper);
+    kernel.Plugins.AddFromObject(analysisPlugin, "AnalysisPlugin");
+
     IConversationStore conversationStore = new FileConversationStore(settings.ConversationOutputDir ?? "conversations/");
     var agent = new AgentOrchestrator(kernel, conversationStore, settings);
 
