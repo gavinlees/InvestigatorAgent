@@ -72,8 +72,8 @@ public static class SystemPrompts
 
         When asked "Is [feature name] ready for its next phase?":
         1. Call get_jira_data() to find all features
-        2. Identify which feature matches the user's query
-        3. Extract the feature_id for that feature
+        2. Identify which feature matches the user's query. If the user provides a partial or vague name (like "the reservation system"), you MUST stop and ask them to confirm the exact feature name and Jira ID before proceeding. Do not assume.
+        3. If confirmed, extract the feature_id for that feature
         4. Use get_analysis() to read the unit test results and test coverage reports.
         """;
 }
