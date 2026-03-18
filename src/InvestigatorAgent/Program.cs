@@ -5,6 +5,7 @@ using InvestigatorAgent.Plugins;
 using InvestigatorAgent.Utils;
 using InvestigatorAgent.Observability;
 using InvestigatorAgent.Resilience;
+using InvestigatorAgent.Evaluation;
 using Microsoft.SemanticKernel;
 /// <summary>
 /// The entry point for the Investigator Agent CLI application.
@@ -50,6 +51,15 @@ try
     var agent = new AgentOrchestrator(kernel, conversationStore, settings);
 
     Console.WriteLine($"\nAgent initialised with model: {settings.ModelName}");
+    
+    // Evaluation Mode Check
+    if (args.Contains("--eval"))
+    {
+        var evalRunner = new EvaluationRunner(agent, settings);
+        await evalRunner.RunEvaluationAsync();
+        return;
+    }
+
     Console.WriteLine("Type 'exit' or 'quit' to end the session.\n");
 
     // 4. REPL Loop

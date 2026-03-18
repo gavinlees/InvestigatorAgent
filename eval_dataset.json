@@ -1,0 +1,21 @@
+{
+  "name": "InvestigatorAgentEvaluation",
+  "items": [
+    {
+      "input": "What is the status of the 'Authentication' feature?",
+      "expected_output": "The Authentication feature status should be retrieved from Jira data. Ensure it reflects the latest project state."
+    },
+    {
+      "input": "Summarize the risks for the 'Reporting' feature.",
+      "expected_output": "The summary should include high-risk items from the Analysis data and any linked Jira issues."
+    },
+    {
+      "input": "Give me a summary of all features currently in 'In Progress' status.",
+      "expected_output": "A list of features filtered by Jira status 'In Progress'."
+    },
+    {
+      "input": "Which features are mentioned in the latest release summary?",
+      "expected_output": "Features listed in the latest release summary file from the data directory."
+    }
+  ]
+}
