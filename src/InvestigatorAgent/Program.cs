@@ -3,6 +3,7 @@ using InvestigatorAgent.Configuration;
 using InvestigatorAgent.Persistence;
 using InvestigatorAgent.Plugins;
 using InvestigatorAgent.Utils;
+using InvestigatorAgent.Observability;
 using Microsoft.SemanticKernel;
 /// <summary>
 /// The entry point for the Investigator Agent CLI application.
@@ -19,6 +20,9 @@ try
     // 1. Load environment and configuration
     ConfigurationLoader.LoadEnv();
     AgentSettings settings = ConfigurationLoader.Load();
+
+    // Configure open telemetry
+    using var tracerProvider = TelemetrySetup.ConfigureTracing(settings);
 
     // 2. Build Semantic Kernel (encapsulated helper)
     Kernel kernel;

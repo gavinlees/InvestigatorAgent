@@ -2,6 +2,7 @@ using FluentAssertions;
 using InvestigatorAgent.Agent;
 using InvestigatorAgent.Configuration;
 using InvestigatorAgent.Persistence;
+using InvestigatorAgent.Resilience;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using NSubstitute;
@@ -115,7 +116,7 @@ public sealed class AgentOrchestratorTests
     {
         // Arrange
         var conversationStoreMock = Substitute.For<IConversationStore>();
-        var settings = new AgentSettings { ModelName = "test-model", Temperature = 0.0 };
+        var settings = new AgentSettings { ModelName = "test-model", Temperature = 0.0, Retry = new RetryConfiguration() };
         var orchestratorWithStore = new AgentOrchestrator(_chatService, conversationStoreMock, settings);
         
         SetupMockResponse("I will save this.");

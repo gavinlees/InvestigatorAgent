@@ -88,6 +88,9 @@ public sealed class AgentSettingsTests : IDisposable
         settings.TraceOutputDir.Should().BeNull();
         settings.ConversationOutputDir.Should().BeNull();
         settings.DataDirectory.Should().BeNull();
+        settings.LangfusePublicKey.Should().BeNull();
+        settings.LangfuseSecretKey.Should().BeNull();
+        settings.LangfuseBaseUrl.Should().BeNull();
     }
 
     /// <summary>

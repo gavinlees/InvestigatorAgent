@@ -1,5 +1,6 @@
 using InvestigatorAgent.Configuration;
 using InvestigatorAgent.Persistence;
+using InvestigatorAgent.Resilience;
 using Microsoft.SemanticKernel.ChatCompletion;
 using System.Text.Json;
 using Xunit;
@@ -32,7 +33,7 @@ public class FileConversationStoreTests : IDisposable
         var history = new ChatHistory();
         history.AddSystemMessage("You are a system");
         history.AddUserMessage("Hello");
-        var settings = new AgentSettings { ModelName = "test-model-abc", Temperature = 0.0 };
+        var settings = new AgentSettings { ModelName = "test-model-abc", Temperature = 0.0, Retry = new RetryConfiguration() };
 
         // Act
         await store.SaveConversationAsync(conversationId, history, settings);

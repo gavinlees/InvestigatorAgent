@@ -1,3 +1,4 @@
+using InvestigatorAgent.Resilience;
 using dotenv.net;
 
 namespace InvestigatorAgent.Configuration;
@@ -70,6 +71,10 @@ public static class ConfigurationLoader
             TraceOutputDir = Environment.GetEnvironmentVariable("TRACE_OUTPUT_DIR"),
             ConversationOutputDir = Environment.GetEnvironmentVariable("CONVERSATION_OUTPUT_DIR"),
             DataDirectory = Environment.GetEnvironmentVariable("DATA_DIRECTORY"),
+            LangfusePublicKey = Environment.GetEnvironmentVariable("LANGFUSE_PUBLIC_KEY"),
+            LangfuseSecretKey = Environment.GetEnvironmentVariable("LANGFUSE_SECRET_KEY"),
+            LangfuseBaseUrl = Environment.GetEnvironmentVariable("LANGFUSE_BASE_URL"),
+            Retry = new RetryConfiguration { MaxRetryAttempts = int.TryParse(Environment.GetEnvironmentVariable("MAX_RETRY_ATTEMPTS"), out int max) ? max : 3 }
         };
     }
 

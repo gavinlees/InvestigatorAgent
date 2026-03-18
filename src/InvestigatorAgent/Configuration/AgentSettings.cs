@@ -1,3 +1,5 @@
+using InvestigatorAgent.Resilience;
+
 namespace InvestigatorAgent.Configuration;
 
 /// <summary>
@@ -29,4 +31,16 @@ public record AgentSettings
 
     /// <summary>Gets the optional directory path for the incoming feature data.</summary>
     public string? DataDirectory { get; init; }
+
+    /// <summary>Gets the Langfuse public key for telemetry.</summary>
+    public string? LangfusePublicKey { get; init; }
+
+    /// <summary>Gets the Langfuse secret key for telemetry.</summary>
+    public string? LangfuseSecretKey { get; init; }
+
+    /// <summary>Gets the Langfuse base URL for telemetry.</summary>
+    public string? LangfuseBaseUrl { get; init; }
+
+    /// <summary>Gets the configuration for retry policies.</summary>
+    public required RetryConfiguration Retry { get; init; }
 }
