@@ -54,4 +54,28 @@ public sealed class ResilienceTests
         result.Should().Be("Success");
         executionCount.Should().Be(1);
     }
+
+    [Fact]
+    public async Task LlmRetryPolicy_RetriesOnTransientError()
+    {
+        // Arrange
+        var config = new RetryConfiguration { MaxRetryAttempts = 2 };
+        var policy = RetryPolicies.CreateLlmRetryPolicy(config);
+        int executionCount = 0;
+
+        // Act
+        var result = await policy.ExecuteAsync(async () =>
+        {
+            executionCount++;
+            if (executionCount < 3) // Fail twice
+            {
+                throw new HttpRequestException("Transient error");
+            }
+            return await Task.FromResult("Recovered");
+        });
+
+        // Assert
+        result.Should().Be("Recovered");
+        executionCount.Should().Be(3); // 1st try + 2 retries
+    }
 }
