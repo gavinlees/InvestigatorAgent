@@ -1,5 +1,7 @@
 using InvestigatorAgent.Utils;
+using InvestigatorAgent.Resilience;
 using Microsoft.SemanticKernel;
+using Polly.Retry;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -12,10 +14,12 @@ namespace InvestigatorAgent.Plugins;
 public sealed class JiraPlugin
 {
     private readonly FeatureFolderMapper _mapper;
+    private readonly AsyncRetryPolicy _retryPolicy;
 
-    public JiraPlugin(FeatureFolderMapper mapper)
+    public JiraPlugin(FeatureFolderMapper mapper, AsyncRetryPolicy? retryPolicy = null)
     {
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+        _retryPolicy = retryPolicy ?? RetryPolicies.CreateToolRetryPolicy(new RetryConfiguration());
     }
 
     /// <summary>
@@ -24,7 +28,7 @@ public sealed class JiraPlugin
     /// </summary>
     [KernelFunction("get_jira_data")]
     [System.ComponentModel.Description("Retrieves a high-level summary of all features being tracked. Returns a JSON string containing an array of feature objects with their ID, Jira Key, Summary, and Status. Use this first when a user asks about a feature.")]
-    public string GetJiraData()
+    public async Task<string> GetJiraDataAsync()
     {
         var folders = _mapper.GetFeatureFolders();
         var results = new List<FeatureSummary>();
@@ -39,7 +43,7 @@ public sealed class JiraPlugin
             {
                 try
                 {
-                    string json = File.ReadAllText(jiraFilePath);
+                    string json = await _retryPolicy.ExecuteAsync(async () => await File.ReadAllTextAsync(jiraFilePath));
                     var issueOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                     var issueDocument = JsonSerializer.Deserialize<JiraIssueDocument>(json, issueOptions);
 

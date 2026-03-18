@@ -1,5 +1,7 @@
 using InvestigatorAgent.Utils;
+using InvestigatorAgent.Resilience;
 using Microsoft.SemanticKernel;
+using Polly.Retry;
 
 namespace InvestigatorAgent.Plugins;
 
@@ -11,11 +13,13 @@ public sealed class AnalysisPlugin
 {
     private readonly string _dataDirectory;
     private readonly FeatureFolderMapper _mapper;
+    private readonly AsyncRetryPolicy _retryPolicy;
 
-    public AnalysisPlugin(string dataDirectory, FeatureFolderMapper mapper)
+    public AnalysisPlugin(string dataDirectory, FeatureFolderMapper mapper, AsyncRetryPolicy? retryPolicy = null)
     {
         _dataDirectory = dataDirectory ?? throw new ArgumentNullException(nameof(dataDirectory));
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+        _retryPolicy = retryPolicy ?? RetryPolicies.CreateToolRetryPolicy(new RetryConfiguration());
     }
 
     /// <summary>
@@ -49,7 +53,7 @@ public sealed class AnalysisPlugin
 
         try
         {
-            string json = await File.ReadAllTextAsync(filePath);
+            string json = await _retryPolicy.ExecuteAsync(async () => await File.ReadAllTextAsync(filePath));
             return json;
         }
         catch (Exception ex)

@@ -4,6 +4,7 @@ using InvestigatorAgent.Persistence;
 using InvestigatorAgent.Plugins;
 using InvestigatorAgent.Utils;
 using InvestigatorAgent.Observability;
+using InvestigatorAgent.Resilience;
 using Microsoft.SemanticKernel;
 /// <summary>
 /// The entry point for the Investigator Agent CLI application.
@@ -37,10 +38,12 @@ try
 
     // 3. Initialise Agent Orchestrator & Register Plugins
     var mapper = new FeatureFolderMapper(settings.DataDirectory ?? "incoming_data/");
-    var jiraPlugin = new JiraPlugin(mapper);
+    var toolRetryPolicy = RetryPolicies.CreateToolRetryPolicy(settings.Retry ?? new RetryConfiguration());
+
+    var jiraPlugin = new JiraPlugin(mapper, toolRetryPolicy);
     kernel.Plugins.AddFromObject(jiraPlugin, "JiraPlugin");
 
-    var analysisPlugin = new AnalysisPlugin(settings.DataDirectory ?? "incoming_data/", mapper);
+    var analysisPlugin = new AnalysisPlugin(settings.DataDirectory ?? "incoming_data/", mapper, toolRetryPolicy);
     kernel.Plugins.AddFromObject(analysisPlugin, "AnalysisPlugin");
 
     IConversationStore conversationStore = new FileConversationStore(settings.ConversationOutputDir ?? "conversations/");

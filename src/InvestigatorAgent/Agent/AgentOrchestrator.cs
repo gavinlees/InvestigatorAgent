@@ -5,6 +5,8 @@ using Microsoft.SemanticKernel.Connectors.Google;
 using System.Net.Http.Headers;
 using InvestigatorAgent.Persistence;
 using InvestigatorAgent.Configuration;
+using InvestigatorAgent.Resilience;
+using Polly.Retry;
 
 namespace InvestigatorAgent.Agent;
 
@@ -20,6 +22,7 @@ public sealed class AgentOrchestrator
     private readonly AgentSettings? _settings;
     private readonly string _conversationId = Guid.NewGuid().ToString("N");
     private readonly Kernel? _kernel;
+    private readonly AsyncRetryPolicy _llmRetryPolicy;
 
     public AgentOrchestrator(Kernel kernel, IConversationStore? conversationStore = null, AgentSettings? settings = null)
     {
@@ -29,6 +32,7 @@ public sealed class AgentOrchestrator
         _chatHistory.AddSystemMessage(SystemPrompts.InvestigatorAgent);
         _conversationStore = conversationStore;
         _settings = settings;
+        _llmRetryPolicy = RetryPolicies.CreateLlmRetryPolicy(settings?.Retry ?? new RetryConfiguration());
     }
 
     /// <summary>
@@ -84,6 +88,7 @@ public sealed class AgentOrchestrator
         _chatHistory.AddSystemMessage(SystemPrompts.InvestigatorAgent);
         _conversationStore = conversationStore;
         _settings = settings;
+        _llmRetryPolicy = RetryPolicies.CreateLlmRetryPolicy(settings?.Retry ?? new RetryConfiguration());
     }
 
     /// <summary>
@@ -117,10 +122,12 @@ public sealed class AgentOrchestrator
             };
         }
 
-        var result = await _chatService.GetChatMessageContentsAsync(
-            _chatHistory,
-            executionSettings: executionSettings,
-            kernel: _kernel
+        var result = await _llmRetryPolicy.ExecuteAsync(async () => 
+            await _chatService.GetChatMessageContentsAsync(
+                _chatHistory,
+                executionSettings: executionSettings,
+                kernel: _kernel
+            )
         );
 
         string response = result[0].Content ?? string.Empty;

@@ -2,6 +2,7 @@ using InvestigatorAgent.Plugins;
 using InvestigatorAgent.Utils;
 using Xunit;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace InvestigatorAgent.Tests.Plugins;
 
@@ -32,7 +33,7 @@ public sealed class JiraPluginTests : IDisposable
     }
 
     [Fact]
-    public void GetJiraData_ValidData_ReturnsJsonSummary()
+    public async Task GetJiraData_ValidData_ReturnsJsonSummary()
     {
         // Arrange
         var featureDir = Path.Combine(_tempPath, "feature1");
@@ -56,7 +57,7 @@ public sealed class JiraPluginTests : IDisposable
         var plugin = new JiraPlugin(mapper);
 
         // Act
-        string resultJson = plugin.GetJiraData();
+        string resultJson = await plugin.GetJiraDataAsync();
 
         // Assert
         using var document = JsonDocument.Parse(resultJson);
@@ -73,7 +74,7 @@ public sealed class JiraPluginTests : IDisposable
     }
 
     [Fact]
-    public void GetJiraData_MissingFile_ReturnsMissingStatus()
+    public async Task GetJiraData_MissingFile_ReturnsMissingStatus()
     {
         // Arrange
         var featureDir = Path.Combine(_tempPath, "feature2");
@@ -83,7 +84,7 @@ public sealed class JiraPluginTests : IDisposable
         var plugin = new JiraPlugin(mapper);
 
         // Act
-        string resultJson = plugin.GetJiraData();
+        string resultJson = await plugin.GetJiraDataAsync();
 
         // Assert
         using var document = JsonDocument.Parse(resultJson);
@@ -99,7 +100,7 @@ public sealed class JiraPluginTests : IDisposable
     }
 
     [Fact]
-    public void GetJiraData_InvalidJson_ReturnsErrorStatus()
+    public async Task GetJiraData_InvalidJson_ReturnsErrorStatus()
     {
         // Arrange
         var featureDir = Path.Combine(_tempPath, "feature3");
@@ -113,7 +114,7 @@ public sealed class JiraPluginTests : IDisposable
         var plugin = new JiraPlugin(mapper);
 
         // Act
-        string resultJson = plugin.GetJiraData();
+        string resultJson = await plugin.GetJiraDataAsync();
 
         // Assert
         using var document = JsonDocument.Parse(resultJson);
