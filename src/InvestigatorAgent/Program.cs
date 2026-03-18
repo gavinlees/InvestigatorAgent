@@ -1,7 +1,9 @@
 using InvestigatorAgent.Agent;
 using InvestigatorAgent.Configuration;
+using InvestigatorAgent.Persistence;
+using InvestigatorAgent.Plugins;
+using InvestigatorAgent.Utils;
 using Microsoft.SemanticKernel;
-
 /// <summary>
 /// The entry point for the Investigator Agent CLI application.
 /// Initialises configuration, builds the Semantic Kernel, and starts the REPL loop.
@@ -29,8 +31,13 @@ try
         kernel = AgentOrchestrator.CreateOpenRouterKernel(settings.ModelName, settings.OpenRouterApiKey!);
     }
 
-    // 3. Initialise Agent Orchestrator
-    var agent = new AgentOrchestrator(kernel);
+    // 3. Initialise Agent Orchestrator & Register Plugins
+    var mapper = new FeatureFolderMapper(settings.DataDirectory ?? "incoming_data/");
+    var jiraPlugin = new JiraPlugin(mapper);
+    kernel.Plugins.AddFromObject(jiraPlugin, "JiraPlugin");
+
+    IConversationStore conversationStore = new FileConversationStore(settings.ConversationOutputDir ?? "conversations/");
+    var agent = new AgentOrchestrator(kernel, conversationStore, settings);
 
     Console.WriteLine($"\nAgent initialised with model: {settings.ModelName}");
     Console.WriteLine("Type 'exit' or 'quit' to end the session.\n");
@@ -61,13 +68,8 @@ try
             Console.Write("Agent: ");
             Console.ResetColor();
 
-            // Use the streaming method to write chunks as they arrive
-            await foreach (var chunk in agent.SendMessageStreamAsync(input, settings.Temperature))
-            {
-                Console.Write(chunk);
-            }
-            
-            Console.WriteLine();
+            string response = await agent.SendMessageAsync(input, settings.Temperature);
+            Console.WriteLine(response);
             Console.WriteLine();
         }
         catch (Exception ex)

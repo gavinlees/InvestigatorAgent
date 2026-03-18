@@ -3,6 +3,8 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Microsoft.SemanticKernel.Connectors.Google;
 using System.Net.Http.Headers;
+using InvestigatorAgent.Persistence;
+using InvestigatorAgent.Configuration;
 
 namespace InvestigatorAgent.Agent;
 
@@ -14,12 +16,19 @@ public sealed class AgentOrchestrator
 {
     private readonly IChatCompletionService _chatService;
     private readonly ChatHistory _chatHistory;
+    private readonly IConversationStore? _conversationStore;
+    private readonly AgentSettings? _settings;
+    private readonly string _conversationId = Guid.NewGuid().ToString("N");
+    private readonly Kernel? _kernel;
 
-    public AgentOrchestrator(Kernel kernel)
+    public AgentOrchestrator(Kernel kernel, IConversationStore? conversationStore = null, AgentSettings? settings = null)
     {
+        _kernel = kernel;
         _chatService = kernel.GetRequiredService<IChatCompletionService>();
         _chatHistory = new ChatHistory();
         _chatHistory.AddSystemMessage(SystemPrompts.InvestigatorAgent);
+        _conversationStore = conversationStore;
+        _settings = settings;
     }
 
     /// <summary>
@@ -68,11 +77,13 @@ public sealed class AgentOrchestrator
     /// Intended for use in unit tests where the service is substituted.
     /// </summary>
     /// <param name="chatService">The chat completion service to use.</param>
-    public AgentOrchestrator(IChatCompletionService chatService)
+    public AgentOrchestrator(IChatCompletionService chatService, IConversationStore? conversationStore = null, AgentSettings? settings = null)
     {
         _chatService = chatService;
         _chatHistory = new ChatHistory();
         _chatHistory.AddSystemMessage(SystemPrompts.InvestigatorAgent);
+        _conversationStore = conversationStore;
+        _settings = settings;
     }
 
     /// <summary>
@@ -92,7 +103,8 @@ public sealed class AgentOrchestrator
         {
             executionSettings = new GeminiPromptExecutionSettings
             {
-                Temperature = (float)temperature
+                Temperature = (float)temperature,
+                ToolCallBehavior = GeminiToolCallBehavior.AutoInvokeKernelFunctions
             };
         }
         else
@@ -100,17 +112,24 @@ public sealed class AgentOrchestrator
             // Default to OpenAI settings for OpenRouter/OpenAI
             executionSettings = new OpenAIPromptExecutionSettings
             {
-                Temperature = (float)temperature
+                Temperature = (float)temperature,
+                ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions
             };
         }
 
         var result = await _chatService.GetChatMessageContentsAsync(
             _chatHistory,
-            executionSettings: executionSettings
+            executionSettings: executionSettings,
+            kernel: _kernel
         );
 
         string response = result[0].Content ?? string.Empty;
         _chatHistory.AddAssistantMessage(response);
+
+        if (_conversationStore != null && _settings != null)
+        {
+            await _conversationStore.SaveConversationAsync(_conversationId, _chatHistory, _settings);
+        }
 
         return response;
     }
@@ -137,7 +156,8 @@ public sealed class AgentOrchestrator
         {
             executionSettings = new GeminiPromptExecutionSettings
             {
-                Temperature = (float)temperature
+                Temperature = (float)temperature,
+                ToolCallBehavior = GeminiToolCallBehavior.AutoInvokeKernelFunctions
             };
         }
         else
@@ -145,7 +165,8 @@ public sealed class AgentOrchestrator
             // Default to OpenAI settings for OpenRouter/OpenAI
             executionSettings = new OpenAIPromptExecutionSettings
             {
-                Temperature = (float)temperature
+                Temperature = (float)temperature,
+                ToolCallBehavior = ToolCallBehavior.AutoInvokeKernelFunctions
             };
         }
 
@@ -154,6 +175,7 @@ public sealed class AgentOrchestrator
         await foreach (var content in _chatService.GetStreamingChatMessageContentsAsync(
             _chatHistory,
             executionSettings: executionSettings,
+            kernel: _kernel,
             cancellationToken: cancellationToken))
         {
             if (content.Content != null)
@@ -164,6 +186,11 @@ public sealed class AgentOrchestrator
         }
 
         _chatHistory.AddAssistantMessage(fullResponse);
+
+        if (_conversationStore != null && _settings != null)
+        {
+            await _conversationStore.SaveConversationAsync(_conversationId, _chatHistory, _settings);
+        }
     }
 
     /// <summary>

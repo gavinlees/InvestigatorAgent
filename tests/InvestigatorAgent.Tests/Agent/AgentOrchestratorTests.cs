@@ -1,5 +1,7 @@
 using FluentAssertions;
 using InvestigatorAgent.Agent;
+using InvestigatorAgent.Configuration;
+using InvestigatorAgent.Persistence;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using NSubstitute;
@@ -103,6 +105,29 @@ public sealed class AgentOrchestratorTests
 
         // Assert: system + 2 user + 2 assistant = 5 entries
         _orchestrator.History.Should().HaveCount(5);
+    }
+
+    /// <summary>
+    /// Verifies that the conversation is saved to the store after a message is sent.
+    /// </summary>
+    [Fact]
+    public async Task SendMessageAsync_SavesConversation_WhenStoreIsProvided()
+    {
+        // Arrange
+        var conversationStoreMock = Substitute.For<IConversationStore>();
+        var settings = new AgentSettings { ModelName = "test-model", Temperature = 0.0 };
+        var orchestratorWithStore = new AgentOrchestrator(_chatService, conversationStoreMock, settings);
+        
+        SetupMockResponse("I will save this.");
+
+        // Act
+        await orchestratorWithStore.SendMessageAsync("Save please");
+
+        // Assert
+        await conversationStoreMock.Received(1).SaveConversationAsync(
+            Arg.Any<string>(),
+            Arg.Is<ChatHistory>(h => h.Count == 3), // System, User, Assistant
+            settings);
     }
 
     // -------------------------------------------------------------------------
