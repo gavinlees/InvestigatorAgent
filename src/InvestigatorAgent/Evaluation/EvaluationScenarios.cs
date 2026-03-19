@@ -34,8 +34,8 @@ public static class EvaluationScenarios
                 Name = "Partial Name — Maintenance",
                 Category = "Ambiguous",
                 UserQuery = "Give me a status update on the Maintenance feature.",
-                ExpectedDecision = "READY",
-                ExpectedFeatureId = "feature1"
+                ExpectedDecision = "CLARIFICATION",
+                ExpectedFeatureId = string.Empty
             },
             new() {
                 Name = "Masked Failures — Advanced Reservation",
@@ -48,8 +48,8 @@ public static class EvaluationScenarios
                 Name = "Multiple Matches — resource",
                 Category = "Ambiguous",
                 UserQuery = "Tell me about the resource features.",
-                ExpectedDecision = "READY", // It should at least find one or ask for clarification, but we expect it to identify feature1/feature3
-                ExpectedFeatureId = "feature1"
+                ExpectedDecision = "CLARIFICATION", 
+                ExpectedFeatureId = string.Empty
             },
 
             // Edge Cases
