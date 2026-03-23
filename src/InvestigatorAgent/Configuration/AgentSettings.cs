@@ -41,6 +41,12 @@ public record AgentSettings
     /// <summary>Gets the Langfuse base URL for telemetry.</summary>
     public string? LangfuseBaseUrl { get; init; }
 
+    /// <summary>Gets the threshold of messages in history before triggering summarisation. Null means no summarisation.</summary>
+    public int? ConversationSummaryThreshold { get; init; }
+
+    /// <summary>Gets the number of most recent messages to retain un-summarised when a summary is triggered.</summary>
+    public int? ConversationSummaryRemaining { get; init; }
+
     /// <summary>Gets the configuration for retry policies.</summary>
     public required RetryConfiguration Retry { get; init; }
 }

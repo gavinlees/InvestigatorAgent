@@ -23,4 +23,12 @@ public static class SystemPrompts
             return File.ReadAllText(filePath);
         }
     }
+
+    /// <summary>
+    /// System prompt used to instruct the LLM on how to summarise conversation history.
+    /// </summary>
+    public static string ConversationSummarizer => 
+        "Summarise the following conversation history between a User and an AI Assistant. " +
+        "Ensure the summary is concise but retains key facts, decisions, and any Feature IDs or Jira Keys mentioned. " +
+        "Maintain the current state of the investigation and any pending actions.";
 }

@@ -74,6 +74,8 @@ public static class ConfigurationLoader
             LangfusePublicKey = Environment.GetEnvironmentVariable("LANGFUSE_PUBLIC_KEY"),
             LangfuseSecretKey = Environment.GetEnvironmentVariable("LANGFUSE_SECRET_KEY"),
             LangfuseBaseUrl = Environment.GetEnvironmentVariable("LANGFUSE_BASE_URL"),
+            ConversationSummaryThreshold = int.TryParse(Environment.GetEnvironmentVariable("CONVERSATION_SUMMARY_THRESHOLD"), out int threshold) ? threshold : null,
+            ConversationSummaryRemaining = int.TryParse(Environment.GetEnvironmentVariable("CONVERSATION_SUMMARY_REMAINING"), out int remaining) ? remaining : null,
             Retry = new RetryConfiguration { MaxRetryAttempts = int.TryParse(Environment.GetEnvironmentVariable("MAX_RETRY_ATTEMPTS"), out int max) ? max : 3 }
         };
     }

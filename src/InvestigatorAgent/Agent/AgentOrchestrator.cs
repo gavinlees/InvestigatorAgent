@@ -104,6 +104,9 @@ public sealed class AgentOrchestrator
     public async Task<string> SendMessageAsync(string userMessage, double temperature = 0.0)
     {
         Console.WriteLine($"[DEBUG] SendMessageAsync: Received user message: '{userMessage}'");
+        
+        await SummariseHistoryIfNecessaryAsync();
+        
         _chatHistory.AddUserMessage(userMessage);
 
         PromptExecutionSettings? executionSettings = null;
@@ -207,6 +210,8 @@ public sealed class AgentOrchestrator
         double temperature = 0.0, 
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        await SummariseHistoryIfNecessaryAsync();
+        
         _chatHistory.AddUserMessage(userMessage);
 
         PromptExecutionSettings? executionSettings = null;
@@ -257,4 +262,61 @@ public sealed class AgentOrchestrator
     /// Gets the full conversation history, including system, user, and assistant messages.
     /// </summary>
     public IReadOnlyList<ChatMessageContent> History => _chatHistory;
+
+    /// <summary>
+    /// Checks if the conversation history exceeds the configured threshold and condenses it if necessary.
+    /// </summary>
+    private async Task SummariseHistoryIfNecessaryAsync()
+    {
+        if (_settings?.ConversationSummaryThreshold == null || 
+            _chatHistory.Count < _settings.ConversationSummaryThreshold)
+        {
+            return;
+        }
+
+        Console.WriteLine($"[DEBUG] Summarisation trigger reached (Count: {_chatHistory.Count})");
+
+        // Ensure we keep at least the system message and the recent messages
+        int remainingCount = _settings.ConversationSummaryRemaining ?? 5;
+        int toSummariseCount = _chatHistory.Count - remainingCount;
+
+        // Ensure the remaining history starts with a User message (Gemini requirement)
+        // AND that we preserve an even number of messages from that point (to end with Assistant)
+        int firstRecentIndex = toSummariseCount;
+        while (firstRecentIndex < _chatHistory.Count && 
+               (_chatHistory[firstRecentIndex].Role != AuthorRole.User || (_chatHistory.Count - firstRecentIndex) % 2 != 0))
+        {
+            firstRecentIndex++;
+        }
+
+        // If we can't find a valid starting User message, or we'd prune everything, skip
+        if (firstRecentIndex >= _chatHistory.Count || (_chatHistory.Count - firstRecentIndex) < 2)
+        {
+            Console.WriteLine("[DEBUG] Summarisation skipped: Could not find valid even-length recent history starting with User.");
+            return;
+        }
+
+        toSummariseCount = firstRecentIndex;
+        // Slice messages to summarise (skip initial system message at index 0)
+        var messagesToSummarise = _chatHistory.Skip(1).Take(toSummariseCount - 1).ToList();
+        
+        var summaryService = new ConversationSummaryService(_chatService, _kernel);
+        string summary = await summaryService.SummariseMessagesAsync(messagesToSummarise);
+
+        // Rebuild history: [System Message + Summary] -> [Recent Messages]
+        string updatedSystemPrompt = SystemPrompts.InvestigatorAgent + 
+                                     "\n\n[CONVERSATION SUMMARY]\n" + summary + "\n[END SUMMARY]\n";
+        
+        var recentMessages = _chatHistory.Skip(toSummariseCount).ToList();
+
+        _chatHistory.Clear();
+        _chatHistory.AddSystemMessage(updatedSystemPrompt);
+        
+        foreach (var msg in recentMessages)
+        {
+            _chatHistory.Add(msg);
+        }
+
+        Console.WriteLine($"[DEBUG] Summarisation complete. New history count: {_chatHistory.Count}");
+    }
 }
