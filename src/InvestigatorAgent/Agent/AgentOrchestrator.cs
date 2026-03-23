@@ -23,6 +23,10 @@ public sealed class AgentOrchestrator
     private readonly string _conversationId = Guid.NewGuid().ToString("N");
     private readonly Kernel? _kernel;
     private readonly AsyncRetryPolicy _llmRetryPolicy;
+    
+    // Safety limits to prevent context explosion and hangs
+    private const int MaxToolResultLength = 10000; 
+    private const int MaxTurnsPerMessage = 10;
 
     public AgentOrchestrator(Kernel kernel, IConversationStore? conversationStore = null, AgentSettings? settings = null)
     {
@@ -99,6 +103,7 @@ public sealed class AgentOrchestrator
     /// <returns>The agent's response content.</returns>
     public async Task<string> SendMessageAsync(string userMessage, double temperature = 0.0)
     {
+        Console.WriteLine($"[DEBUG] SendMessageAsync: Received user message: '{userMessage}'");
         _chatHistory.AddUserMessage(userMessage);
 
         PromptExecutionSettings? executionSettings = null;
@@ -122,23 +127,71 @@ public sealed class AgentOrchestrator
             };
         }
 
-        var result = await _llmRetryPolicy.ExecuteAsync(async () => 
-            await _chatService.GetChatMessageContentsAsync(
+        Console.WriteLine("[DEBUG] SendMessageAsync: Calling _chatService...");
+        
+        string finalResponse = string.Empty;
+
+        int turnCount = 0;
+        while (turnCount < MaxTurnsPerMessage)
+        {
+            turnCount++;
+            var result = await _chatService.GetChatMessageContentsAsync(
                 _chatHistory,
                 executionSettings: executionSettings,
                 kernel: _kernel
-            )
-        );
+            );
+            
+            var message = result[0];
+            _chatHistory.Add(message);
+            
+            var functionCalls = message.Items.OfType<FunctionCallContent>().ToList();
+            if (functionCalls.Count == 0)
+            {
+                Console.WriteLine($"[DEBUG] SendMessageAsync: Final response received after {turnCount} turns.");
+                finalResponse = message.Content ?? string.Empty;
+                break;
+            }
 
-        string response = result[0].Content ?? string.Empty;
-        _chatHistory.AddAssistantMessage(response);
+            Console.WriteLine($"[DEBUG] SendMessageAsync: Turn {turnCount} - Received {functionCalls.Count} tool calls.");
+            foreach (var functionCall in functionCalls)
+            {
+                try
+                {
+                    Console.WriteLine($"[DEBUG] Executing tool: {functionCall.PluginName}.{functionCall.FunctionName}");
+#pragma warning disable CS8604
+                    var functionResult = await functionCall.InvokeAsync(_kernel);
+#pragma warning restore CS8604
+                    
+                    // Safety Guard: Truncate large tool results
+                    string resultString = functionResult?.ToString() ?? string.Empty;
+                    if (resultString.Length > MaxToolResultLength)
+                    {
+                        Console.WriteLine($"[DEBUG] Tool result truncated (Length: {resultString.Length})");
+                        resultString = resultString.Substring(0, MaxToolResultLength) + "... [RESULT TRUNCATED FOR STABILITY. USE SEARCH TOOLS FOR SPECIFIC INFO]";
+                    }
+
+                    _chatHistory.Add(new ChatMessageContent(AuthorRole.Tool, [new FunctionResultContent(functionCall, resultString)]));
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DEBUG] Tool error: {ex.Message}");
+                    _chatHistory.Add(new ChatMessageContent(AuthorRole.Tool, [new FunctionResultContent(functionCall, $"Error: {ex.Message}")]));
+                }
+            }
+        }
+
+        if (turnCount >= MaxTurnsPerMessage && string.IsNullOrEmpty(finalResponse))
+        {
+            finalResponse = "Error: The agent reached the maximum number of reasoning turns without a final answer. Please try a more specific query.";
+            Console.WriteLine("[DEBUG] SendMessageAsync: Max turns reached.");
+        }
 
         if (_conversationStore != null && _settings != null)
         {
             await _conversationStore.SaveConversationAsync(_conversationId, _chatHistory, _settings);
         }
 
-        return response;
+        return finalResponse;
     }
 
     /// <summary>

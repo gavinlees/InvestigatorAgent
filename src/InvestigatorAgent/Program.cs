@@ -47,6 +47,9 @@ try
     var analysisPlugin = new AnalysisPlugin(settings.DataDirectory ?? "incoming_data/", mapper, toolRetryPolicy);
     kernel.Plugins.AddFromObject(analysisPlugin, "AnalysisPlugin");
 
+    var planningPlugin = new PlanningPlugin(settings.DataDirectory ?? "incoming_data/", mapper, toolRetryPolicy);
+    kernel.Plugins.AddFromObject(planningPlugin, "PlanningPlugin");
+
     IConversationStore conversationStore = new FileConversationStore(settings.ConversationOutputDir ?? "conversations/");
     var agent = new AgentOrchestrator(kernel, conversationStore, settings);
 

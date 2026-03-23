@@ -27,10 +27,10 @@ public static class TelemetrySetup
             return null;
         }
 
-        // Enable Semantic Kernel diagnostic output for LLM spans
+        // Disable Semantic Kernel diagnostic output for LLM spans to prevent flooding
         AppContext.SetSwitch(
             "Microsoft.SemanticKernel.Experimental.GenAI.EnableOTelDiagnosticsSensitive",
-            true);
+            false);
 
         var resourceBuilder = ResourceBuilder
             .CreateDefault()
@@ -40,6 +40,7 @@ public static class TelemetrySetup
             .SetResourceBuilder(resourceBuilder)
             .AddSource("Microsoft.SemanticKernel*")
             .AddSource("InvestigatorAgent.*")
+            .AddConsoleExporter()
             .AddOtlpExporter(options =>
             {
                 options.Endpoint = new Uri($"{settings.LangfuseBaseUrl.TrimEnd('/')}/api/public/otel/v1/traces");

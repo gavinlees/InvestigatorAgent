@@ -22,20 +22,36 @@ public sealed class AnalysisPlugin
         _retryPolicy = retryPolicy ?? RetryPolicies.CreateToolRetryPolicy(new RetryConfiguration());
     }
 
+    private static readonly HashSet<string> ValidAnalysisTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "metrics/unit_test_results",
+        "metrics/test_coverage_report",
+        "metrics/pipeline_results",
+        "metrics/performance_benchmarks",
+        "metrics/security_scan_results",
+        "reviews/security",
+        "reviews/uat",
+        "reviews/stakeholders"
+    };
+
     /// <summary>
     /// Retrieves analysis data for a specific feature.
-    /// Supported analysis types: 'metrics/unit_test_results', 'metrics/test_coverage_report'.
+    /// Supported analysis types: 
+    /// 'metrics/unit_test_results', 
+    /// 'metrics/test_coverage_report',
+    /// 'metrics/pipeline_results',
+    /// 'metrics/performance_benchmarks',
+    /// 'metrics/security_scan_results'.
     /// </summary>
     [KernelFunction("get_analysis")]
     [System.ComponentModel.Description("Retrieves analysis data for a specific feature. Requires feature_id and analysis_type parameters.")]
     public async Task<string> GetAnalysisAsync(
         [System.ComponentModel.Description("The feature ID (e.g., 'feature1', 'feature2')")] string featureId,
-        [System.ComponentModel.Description("Analysis type: 'metrics/unit_test_results' or 'metrics/test_coverage_report'")] string analysisType)
+        [System.ComponentModel.Description("Analysis type: 'metrics/unit_test_results', 'metrics/test_coverage_report', 'metrics/pipeline_results', 'metrics/performance_benchmarks', or 'metrics/security_scan_results'")] string analysisType)
     {
-        // For Step 3, we only support specific analysis types
-        if (analysisType != "metrics/unit_test_results" && analysisType != "metrics/test_coverage_report")
+        if (!ValidAnalysisTypes.Contains(analysisType))
         {
-            return $"Error: Unsupported analysis type '{analysisType}'. Available types are: 'metrics/unit_test_results', 'metrics/test_coverage_report'.";
+            return $"Error: Unsupported analysis type '{analysisType}'. Available types are: {string.Join(", ", ValidAnalysisTypes)}.";
         }
 
         var folders = _mapper.GetFeatureFolders();

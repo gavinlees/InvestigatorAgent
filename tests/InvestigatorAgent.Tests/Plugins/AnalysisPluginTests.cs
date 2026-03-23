@@ -66,6 +66,69 @@ public class AnalysisPluginTests : IDisposable
     }
 
     [Fact]
+    public async Task GetAnalysisAsync_PipelineResults_ReturnsJson()
+    {
+        // Arrange
+        var featureDir = Path.Combine(_tempPath, "feature1");
+        var metricsDir = Path.Combine(featureDir, "metrics");
+        Directory.CreateDirectory(metricsDir);
+        
+        var jsonContent = "{ \"pipeline_status\": \"SUCCESS\" }";
+        await File.WriteAllTextAsync(Path.Combine(metricsDir, "pipeline_results.json"), jsonContent);
+
+        var mapper = new FeatureFolderMapper(_tempPath);
+        var plugin = new AnalysisPlugin(_tempPath, mapper);
+
+        // Act
+        string resultJson = await plugin.GetAnalysisAsync("feature1", "metrics/pipeline_results");
+
+        // Assert
+        resultJson.Should().Be(jsonContent);
+    }
+
+    [Fact]
+    public async Task GetAnalysisAsync_PerformanceBenchmarks_ReturnsJson()
+    {
+        // Arrange
+        var featureDir = Path.Combine(_tempPath, "feature1");
+        var metricsDir = Path.Combine(featureDir, "metrics");
+        Directory.CreateDirectory(metricsDir);
+        
+        var jsonContent = "{ \"p95_latency_ms\": 150 }";
+        await File.WriteAllTextAsync(Path.Combine(metricsDir, "performance_benchmarks.json"), jsonContent);
+
+        var mapper = new FeatureFolderMapper(_tempPath);
+        var plugin = new AnalysisPlugin(_tempPath, mapper);
+
+        // Act
+        string resultJson = await plugin.GetAnalysisAsync("feature1", "metrics/performance_benchmarks");
+
+        // Assert
+        resultJson.Should().Be(jsonContent);
+    }
+
+    [Fact]
+    public async Task GetAnalysisAsync_SecurityScanResults_ReturnsJson()
+    {
+        // Arrange
+        var featureDir = Path.Combine(_tempPath, "feature1");
+        var metricsDir = Path.Combine(featureDir, "metrics");
+        Directory.CreateDirectory(metricsDir);
+        
+        var jsonContent = "{ \"risk_level\": \"LOW\" }";
+        await File.WriteAllTextAsync(Path.Combine(metricsDir, "security_scan_results.json"), jsonContent);
+
+        var mapper = new FeatureFolderMapper(_tempPath);
+        var plugin = new AnalysisPlugin(_tempPath, mapper);
+
+        // Act
+        string resultJson = await plugin.GetAnalysisAsync("feature1", "metrics/security_scan_results");
+
+        // Assert
+        resultJson.Should().Be(jsonContent);
+    }
+
+    [Fact]
     public async Task GetAnalysisAsync_InvalidAnalysisType_ReturnsError()
     {
         // Arrange
@@ -77,6 +140,9 @@ public class AnalysisPluginTests : IDisposable
 
         // Assert
         result.Should().StartWith("Error: Unsupported analysis type");
+        result.Should().Contain("metrics/pipeline_results");
+        result.Should().Contain("metrics/performance_benchmarks");
+        result.Should().Contain("metrics/security_scan_results");
     }
 
     [Fact]
