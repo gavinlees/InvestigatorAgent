@@ -41,13 +41,16 @@ public sealed class AnalysisPlugin
     /// 'metrics/test_coverage_report',
     /// 'metrics/pipeline_results',
     /// 'metrics/performance_benchmarks',
-    /// 'metrics/security_scan_results'.
+    /// 'metrics/security_scan_results',
+    /// 'reviews/security',
+    /// 'reviews/uat',
+    /// 'reviews/stakeholders'.
     /// </summary>
     [KernelFunction("get_analysis")]
     [System.ComponentModel.Description("Retrieves analysis data for a specific feature. Requires feature_id and analysis_type parameters.")]
     public async Task<string> GetAnalysisAsync(
         [System.ComponentModel.Description("The feature ID (e.g., 'feature1', 'feature2')")] string featureId,
-        [System.ComponentModel.Description("Analysis type: 'metrics/unit_test_results', 'metrics/test_coverage_report', 'metrics/pipeline_results', 'metrics/performance_benchmarks', or 'metrics/security_scan_results'")] string analysisType)
+        [System.ComponentModel.Description("Analysis type: 'metrics/unit_test_results', 'metrics/test_coverage_report', 'metrics/pipeline_results', 'metrics/performance_benchmarks', 'metrics/security_scan_results', 'reviews/security', 'reviews/uat', or 'reviews/stakeholders'")] string analysisType)
     {
         if (!ValidAnalysisTypes.Contains(analysisType))
         {

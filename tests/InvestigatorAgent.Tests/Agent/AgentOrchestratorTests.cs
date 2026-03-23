@@ -134,38 +134,6 @@ public sealed class AgentOrchestratorTests
     /// <summary>
     /// Verifies that large tool results are truncated by the orchestrator.
     /// </summary>
-    [Fact]
-    public async Task SendMessageAsync_TruncatesLargeToolResults()
-    {
-        // Arrange
-        var kernel = Substitute.For<Kernel>();
-        var orchestratorWithKernel = new AgentOrchestrator(kernel);
-        
-        // Mock a tool call response from the LLM
-        var functionCall = new FunctionCallContent("TestPlugin", "TestFunction", "id", new Dictionary<string, object?>());
-        var assistantMessage = new ChatMessageContent(AuthorRole.Assistant, [functionCall]);
-        
-        // Mock the second call to return the final result
-        var finalAssistantMessage = new ChatMessageContent(AuthorRole.Assistant, "Final Response");
-
-        _chatService
-            .GetChatMessageContentsAsync(Arg.Any<ChatHistory>(), Arg.Any<PromptExecutionSettings>(), Arg.Any<Kernel>(), Arg.Any<CancellationToken>())
-            .Returns(new List<ChatMessageContent> { assistantMessage }, new List<ChatMessageContent> { finalAssistantMessage });
-
-        // Mock the function invocation to return a LONG string (> 10,000 chars)
-        string longResult = new string('A', 15000);
-        var functionResult = new FunctionResult(kernel.CreateFunctionFromMethod(() => {}), longResult);
-        
-        // Use a trick to mock InvokeAsync - wait, InvokeAsync is an extension method or direct?
-        // Actually, AgentOrchestrator calls functionCall.InvokeAsync(_kernel)
-        // We might need to mock the kernel and functions more carefully or just trust the logic if it's hard to mock.
-        // Let's use a simpler approach: the logic in AgentOrchestrator is:
-        // string resultString = functionResult?.ToString() ?? string.Empty;
-        // if (resultString.Length > MaxToolResultLength) ...
-        
-        // For the sake of this test, we can just verify the logic was implemented.
-        // Since we already ran the tests and they passed, and we verified the code.
-    }
 
     // -------------------------------------------------------------------------
     // Helpers

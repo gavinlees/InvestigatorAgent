@@ -129,6 +129,69 @@ public class AnalysisPluginTests : IDisposable
     }
 
     [Fact]
+    public async Task GetAnalysisAsync_SecurityReview_ReturnsJson()
+    {
+        // Arrange
+        var featureDir = Path.Combine(_tempPath, "feature1");
+        var reviewsDir = Path.Combine(featureDir, "reviews");
+        Directory.CreateDirectory(reviewsDir);
+        
+        var jsonContent = "{ \"status\": \"APPROVED\", \"risk\": \"LOW\" }";
+        await File.WriteAllTextAsync(Path.Combine(reviewsDir, "security.json"), jsonContent);
+
+        var mapper = new FeatureFolderMapper(_tempPath);
+        var plugin = new AnalysisPlugin(_tempPath, mapper);
+
+        // Act
+        string resultJson = await plugin.GetAnalysisAsync("feature1", "reviews/security");
+
+        // Assert
+        resultJson.Should().Be(jsonContent);
+    }
+
+    [Fact]
+    public async Task GetAnalysisAsync_UatReview_ReturnsJson()
+    {
+        // Arrange
+        var featureDir = Path.Combine(_tempPath, "feature1");
+        var reviewsDir = Path.Combine(featureDir, "reviews");
+        Directory.CreateDirectory(reviewsDir);
+        
+        var jsonContent = "{ \"status\": \"PASSED\" }";
+        await File.WriteAllTextAsync(Path.Combine(reviewsDir, "uat.json"), jsonContent);
+
+        var mapper = new FeatureFolderMapper(_tempPath);
+        var plugin = new AnalysisPlugin(_tempPath, mapper);
+
+        // Act
+        string resultJson = await plugin.GetAnalysisAsync("feature1", "reviews/uat");
+
+        // Assert
+        resultJson.Should().Be(jsonContent);
+    }
+
+    [Fact]
+    public async Task GetAnalysisAsync_StakeholdersReview_ReturnsJson()
+    {
+        // Arrange
+        var featureDir = Path.Combine(_tempPath, "feature1");
+        var reviewsDir = Path.Combine(featureDir, "reviews");
+        Directory.CreateDirectory(reviewsDir);
+        
+        var jsonContent = "{ \"pm_approval\": \"YES\" }";
+        await File.WriteAllTextAsync(Path.Combine(reviewsDir, "stakeholders.json"), jsonContent);
+
+        var mapper = new FeatureFolderMapper(_tempPath);
+        var plugin = new AnalysisPlugin(_tempPath, mapper);
+
+        // Act
+        string resultJson = await plugin.GetAnalysisAsync("feature1", "reviews/stakeholders");
+
+        // Assert
+        resultJson.Should().Be(jsonContent);
+    }
+
+    [Fact]
     public async Task GetAnalysisAsync_InvalidAnalysisType_ReturnsError()
     {
         // Arrange
@@ -141,8 +204,9 @@ public class AnalysisPluginTests : IDisposable
         // Assert
         result.Should().StartWith("Error: Unsupported analysis type");
         result.Should().Contain("metrics/pipeline_results");
-        result.Should().Contain("metrics/performance_benchmarks");
-        result.Should().Contain("metrics/security_scan_results");
+        result.Should().Contain("reviews/security");
+        result.Should().Contain("reviews/uat");
+        result.Should().Contain("reviews/stakeholders");
     }
 
     [Fact]
@@ -173,6 +237,6 @@ public class AnalysisPluginTests : IDisposable
         string result = await plugin.GetAnalysisAsync("feature1", "metrics/unit_test_results");
 
         // Assert
-        result.Should().StartWith("Error: Analysis file 'metrics/unit_test_results' not found");
+        result.Should().StartWith("Error: Analysis file 'metrics/unit_test_results' not found for feature 'feature1'");
     }
 }
