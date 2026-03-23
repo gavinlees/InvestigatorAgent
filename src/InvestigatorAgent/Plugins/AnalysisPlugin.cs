@@ -12,10 +12,10 @@ namespace InvestigatorAgent.Plugins;
 public sealed class AnalysisPlugin
 {
     private readonly string _dataDirectory;
-    private readonly FeatureFolderMapper _mapper;
+    private readonly IFeatureFolderMapper _mapper;
     private readonly AsyncRetryPolicy _retryPolicy;
 
-    public AnalysisPlugin(string dataDirectory, FeatureFolderMapper mapper, AsyncRetryPolicy? retryPolicy = null)
+    public AnalysisPlugin(string dataDirectory, IFeatureFolderMapper mapper, AsyncRetryPolicy? retryPolicy = null)
     {
         _dataDirectory = dataDirectory ?? throw new ArgumentNullException(nameof(dataDirectory));
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));

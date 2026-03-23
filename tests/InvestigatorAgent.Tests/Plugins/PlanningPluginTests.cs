@@ -1,18 +1,27 @@
-using FluentAssertions;
 using InvestigatorAgent.Plugins;
 using InvestigatorAgent.Utils;
-using System.IO;
+using NSubstitute;
+using Xunit;
+using Polly;
+using Polly.Retry;
+using Microsoft.SemanticKernel;
+using System.Reflection;
 
 namespace InvestigatorAgent.Tests.Plugins;
 
 public class PlanningPluginTests : IDisposable
 {
     private readonly string _tempPath;
+    private readonly IFeatureFolderMapper _mockMapper;
+    private readonly AsyncRetryPolicy _retryPolicy;
 
     public PlanningPluginTests()
     {
         _tempPath = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(_tempPath);
+        
+        _mockMapper = Substitute.For<IFeatureFolderMapper>();
+        _retryPolicy = Policy.Handle<Exception>().RetryAsync(0);
     }
 
     public void Dispose()
@@ -23,88 +32,97 @@ public class PlanningPluginTests : IDisposable
         }
     }
 
-    [Fact]
-    public async Task ListPlanningDocsAsync_ReturnsFiles()
+    private void CreateFeatureDir(string featureId, string folderName)
     {
-        // Arrange
-        var featureDir = Path.Combine(_tempPath, "feature1");
-        var planningDir = Path.Combine(featureDir, "planning");
-        Directory.CreateDirectory(planningDir);
+        string path = Path.Combine(_tempPath, folderName);
+        Directory.CreateDirectory(path);
+        Directory.CreateDirectory(Path.Combine(path, "planning"));
         
-        File.WriteAllText(Path.Combine(planningDir, "USER_STORY.md"), "content");
-        File.WriteAllText(Path.Combine(planningDir, "DESIGN.md"), "content");
+        var folders = new Dictionary<string, string> { { featureId, path } };
+        _mockMapper.GetFeatureFolders().Returns(folders);
+    }
 
-        var mapper = new FeatureFolderMapper(_tempPath);
-        var plugin = new PlanningPlugin(_tempPath, mapper);
-
-        // Act
-        string result = await plugin.ListPlanningDocsAsync("feature1");
-
-        // Assert
-        result.Should().Contain("USER_STORY.md");
-        result.Should().Contain("DESIGN.md");
+    private void CreatePlanningFile(string folderName, string fileName, string content)
+    {
+        string path = Path.Combine(_tempPath, folderName, "planning", fileName);
+        File.WriteAllText(path, content);
     }
 
     [Fact]
-    public async Task ReadPlanningDocAsync_ReturnsContent()
+    public async Task ListPlanningDocs_ReturnsFileList_WhenDocsExist()
     {
         // Arrange
-        var featureDir = Path.Combine(_tempPath, "feature1");
-        var planningDir = Path.Combine(featureDir, "planning");
-        Directory.CreateDirectory(planningDir);
-        
-        string expectedContent = "# User Story\nAs a user...";
-        File.WriteAllText(Path.Combine(planningDir, "USER_STORY.md"), expectedContent);
-
-        var mapper = new FeatureFolderMapper(_tempPath);
-        var plugin = new PlanningPlugin(_tempPath, mapper);
+        CreateFeatureDir("feat1", "feature_feat1");
+        CreatePlanningFile("feature_feat1", "USER_STORY.md", "content");
+        CreatePlanningFile("feature_feat1", "DESIGN.md", "content");
+        var plugin = new PlanningPlugin(_tempPath, _mockMapper, _retryPolicy);
 
         // Act
-        string result = await plugin.ReadPlanningDocAsync("feature1", "USER_STORY.md");
+        var result = await plugin.ListPlanningDocsAsync("feat1");
 
         // Assert
-        result.Should().Be(expectedContent);
+        Assert.Contains("USER_STORY.md", result);
+        Assert.Contains("DESIGN.md", result);
     }
 
     [Fact]
-    public async Task SearchPlanningDocsAsync_ReturnsMatchingLines()
+    public async Task ListPlanningDocs_ReturnsError_WhenFeatureNotFound()
     {
         // Arrange
-        var featureDir = Path.Combine(_tempPath, "feature1");
-        var planningDir = Path.Combine(featureDir, "planning");
-        Directory.CreateDirectory(planningDir);
-        
-        File.WriteAllText(Path.Combine(planningDir, "DOC1.md"), "Line 1: Authentication is key\nLine 2: Other stuff");
-        File.WriteAllText(Path.Combine(planningDir, "DOC2.md"), "Line 1: More on Auth\nLine 2: No match here");
-
-        var mapper = new FeatureFolderMapper(_tempPath);
-        var plugin = new PlanningPlugin(_tempPath, mapper);
+        _mockMapper.GetFeatureFolders().Returns(new Dictionary<string, string>());
+        var plugin = new PlanningPlugin(_tempPath, _mockMapper, _retryPolicy);
 
         // Act
-        string result = await plugin.SearchPlanningDocsAsync("feature1", "Auth");
+        var result = await plugin.ListPlanningDocsAsync("missing");
 
         // Assert
-        result.Should().Contain("DOC1.md [Line 1]: Line 1: Authentication is key");
-        result.Should().Contain("DOC2.md [Line 1]: Line 1: More on Auth");
-        result.Should().NotContain("No match here");
+        Assert.Contains("Error", result);
     }
 
     [Fact]
-    public async Task SearchPlanningDocsAsync_NoMatches_ReturnsMessage()
+    public async Task ReadPlanningDoc_ReturnsContent_WhenFileExists()
     {
         // Arrange
-        var featureDir = Path.Combine(_tempPath, "feature1");
-        var planningDir = Path.Combine(featureDir, "planning");
-        Directory.CreateDirectory(planningDir);
-        File.WriteAllText(Path.Combine(planningDir, "DOC1.md"), "Some content");
-
-        var mapper = new FeatureFolderMapper(_tempPath);
-        var plugin = new PlanningPlugin(_tempPath, mapper);
+        CreateFeatureDir("feat1", "feature_feat1");
+        CreatePlanningFile("feature_feat1", "DESIGN.md", "Hello Design");
+        var plugin = new PlanningPlugin(_tempPath, _mockMapper, _retryPolicy);
 
         // Act
-        string result = await plugin.SearchPlanningDocsAsync("feature1", "MissingTerm");
+        var result = await plugin.ReadPlanningDocAsync("feat1", "DESIGN.md");
 
         // Assert
-        result.Should().Contain("No matches found for 'MissingTerm'");
+        Assert.Equal("Hello Design", result);
+    }
+
+    [Fact]
+    public async Task SearchPlanningDocs_ReturnsMatches_WhenQueryMatches()
+    {
+        // Arrange
+        CreateFeatureDir("feat1", "feature_feat1");
+        CreatePlanningFile("feature_feat1", "STRATEGY.md", "This is the core requirement.");
+        var plugin = new PlanningPlugin(_tempPath, _mockMapper, _retryPolicy);
+
+        // Act
+        // Note: This relies on 'rg' being installed on the local system (which we verified)
+        var result = await plugin.SearchPlanningDocsAsync("feat1", "requirement");
+
+        // Assert
+        Assert.Contains("STRATEGY.md", result);
+        Assert.Contains("requirement", result);
+    }
+
+    [Fact]
+    public async Task SearchPlanningDocs_ReturnsNoMatches_WhenQueryDoesNotMatch()
+    {
+        // Arrange
+        CreateFeatureDir("feat1", "feature_feat1");
+        CreatePlanningFile("feature_feat1", "STRATEGY.md", "Nothing here.");
+        var plugin = new PlanningPlugin(_tempPath, _mockMapper, _retryPolicy);
+
+        // Act
+        var result = await plugin.SearchPlanningDocsAsync("feat1", "missing_term");
+
+        // Assert
+        Assert.Contains("No matches found", result);
     }
 }

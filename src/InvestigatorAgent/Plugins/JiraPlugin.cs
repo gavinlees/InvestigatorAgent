@@ -13,10 +13,10 @@ namespace InvestigatorAgent.Plugins;
 /// </summary>
 public sealed class JiraPlugin
 {
-    private readonly FeatureFolderMapper _mapper;
+    private readonly IFeatureFolderMapper _mapper;
     private readonly AsyncRetryPolicy _retryPolicy;
 
-    public JiraPlugin(FeatureFolderMapper mapper, AsyncRetryPolicy? retryPolicy = null)
+    public JiraPlugin(IFeatureFolderMapper mapper, AsyncRetryPolicy? retryPolicy = null)
     {
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         _retryPolicy = retryPolicy ?? RetryPolicies.CreateToolRetryPolicy(new RetryConfiguration());

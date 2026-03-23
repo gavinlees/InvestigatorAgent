@@ -1,12 +1,9 @@
-using System.Text.Json;
-using System.Text.Json.Serialization;
-
 namespace InvestigatorAgent.Utils;
 
 /// <summary>
 /// A utility class to map feature folder names to their absolute paths within the incoming_data directory.
 /// </summary>
-public sealed class FeatureFolderMapper
+public sealed class FeatureFolderMapper : IFeatureFolderMapper
 {
     private readonly string _dataDirectory;
 

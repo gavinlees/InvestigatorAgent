@@ -3,6 +3,8 @@ using InvestigatorAgent.Resilience;
 using Microsoft.SemanticKernel;
 using Polly.Retry;
 using System.ComponentModel;
+using System.Diagnostics;
+using System.Text.Json;
 
 namespace InvestigatorAgent.Plugins;
 
@@ -13,10 +15,10 @@ namespace InvestigatorAgent.Plugins;
 public sealed class PlanningPlugin
 {
     private readonly string _dataDirectory;
-    private readonly FeatureFolderMapper _mapper;
+    private readonly IFeatureFolderMapper _mapper;
     private readonly AsyncRetryPolicy _retryPolicy;
 
-    public PlanningPlugin(string dataDirectory, FeatureFolderMapper mapper, AsyncRetryPolicy? retryPolicy = null)
+    public PlanningPlugin(string dataDirectory, IFeatureFolderMapper mapper, AsyncRetryPolicy? retryPolicy = null)
     {
         _dataDirectory = dataDirectory ?? throw new ArgumentNullException(nameof(dataDirectory));
         _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
@@ -99,7 +101,7 @@ public sealed class PlanningPlugin
     /// Searches planning documents for a specific term or regex.
     /// </summary>
     [KernelFunction("search_planning_docs")]
-    [Description("Searches all planning documents for a feature for a specific query. Returns matching lines with context.")]
+    [Description("Searches all planning documents for a feature for a specific query using ripgrep. Returns matching lines with context.")]
     public async Task<string> SearchPlanningDocsAsync(
         [Description("The feature ID")] string featureId,
         [Description("The search query (term or simple regex)")] string query)
@@ -118,24 +120,53 @@ public sealed class PlanningPlugin
 
         try
         {
-            var results = new List<string>();
-            var files = Directory.GetFiles(planningDir, "*.md");
-
-            foreach (var file in files)
+            var startInfo = new ProcessStartInfo
             {
-                string fileName = Path.GetFileName(file);
-                string content = await _retryPolicy.ExecuteAsync(async () => await File.ReadAllTextAsync(file));
-                
-                var lines = content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
-                for (int i = 0; i < lines.Length; i++)
+                FileName = "rg",
+                Arguments = $"--json \"{query}\" \"{planningDir}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = Process.Start(startInfo);
+            if (process == null)
+            {
+                return "Error: Failed to start ripgrep process.";
+            }
+
+            string output = await process.StandardOutput.ReadToEndAsync();
+            string error = await process.StandardError.ReadToEndAsync();
+            await process.WaitForExitAsync();
+
+            if (process.ExitCode != 0 && !string.IsNullOrWhiteSpace(error))
+            {
+                return $"Error: ripgrep failed with exit code {process.ExitCode}: {error}";
+            }
+
+            if (string.IsNullOrWhiteSpace(output))
+            {
+                return $"No matches found for '{query}' in planning documents of feature '{featureId}'.";
+            }
+
+            var results = new List<string>();
+            var lines = output.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+            foreach (var line in lines)
+            {
+                using var doc = JsonDocument.Parse(line);
+                var root = doc.RootElement;
+                if (root.GetProperty("type").GetString() == "match")
                 {
-                    if (lines[i].Contains(query, StringComparison.OrdinalIgnoreCase))
-                    {
-                        results.Add($"{fileName} [Line {i + 1}]: {lines[i].Trim()}");
-                        if (results.Count > 20) break; // Limit to 20 matches
-                    }
+                    var data = root.GetProperty("data");
+                    string fileName = Path.GetFileName(data.GetProperty("path").GetProperty("text").GetString() ?? "unknown");
+                    int lineNumber = data.GetProperty("line_number").GetInt32();
+                    string matchText = data.GetProperty("lines").GetProperty("text").GetString()?.Trim() ?? string.Empty;
+
+                    results.Add($"{fileName} [Line {lineNumber}]: {matchText}");
+                    if (results.Count >= 20) break;
                 }
-                if (results.Count > 20) break;
             }
 
             if (results.Count == 0)
