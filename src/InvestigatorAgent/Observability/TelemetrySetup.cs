@@ -39,6 +39,7 @@ public static class TelemetrySetup
         return Sdk.CreateTracerProviderBuilder()
             .SetResourceBuilder(resourceBuilder)
             .AddSource("Microsoft.SemanticKernel*")
+            .AddSource("InvestigatorAgent.*")
             .AddOtlpExporter(options =>
             {
                 options.Endpoint = new Uri($"{settings.LangfuseBaseUrl.TrimEnd('/')}/api/public/otel/v1/traces");

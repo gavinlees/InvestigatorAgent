@@ -55,8 +55,9 @@ try
     // Evaluation Mode Check
     if (args.Contains("--eval"))
     {
+        bool createBaseline = args.Contains("--create-baseline");
         var evalRunner = new EvaluationRunner(agent, settings);
-        await evalRunner.RunEvaluationAsync();
+        await evalRunner.RunEvaluationAsync(createBaseline: createBaseline);
         return;
     }
 

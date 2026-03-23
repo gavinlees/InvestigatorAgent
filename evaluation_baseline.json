@@ -1,0 +1,114 @@
+{
+  "summary": {
+    "overall_score": 1,
+    "pass_rate": 1,
+    "total_scenarios": 10,
+    "acceptance_criteria_met": true
+  },
+  "dimensions": {
+    "feature_identification": 1,
+    "decision_quality": 1
+  },
+  "scenarios": [
+    {
+      "name": "Ready feature \u2014 Maintenance Scheduling",
+      "passed": true,
+      "scores": {
+        "decision_quality": 1,
+        "feature_id_accuracy": 1,
+        "completeness": 1
+      },
+      "comment": "Based on the analysis of the **Maintenance Scheduling \u0026 Alert System** (Jira Key: PLAT-1523, ID: fea..."
+    },
+    {
+      "name": "Ready feature \u2014 QR Code Check-in",
+      "passed": true,
+      "scores": {
+        "decision_quality": 1,
+        "feature_id_accuracy": 1,
+        "completeness": 1
+      },
+      "comment": "Based on the analysis of the **QR Code Check-in/out with Mobile App** (Jira Key: PLAT-1687, ID: feat..."
+    },
+    {
+      "name": "Not Ready \u2014 Contribution Tracking",
+      "passed": true,
+      "scores": {
+        "decision_quality": 1,
+        "feature_id_accuracy": 1,
+        "completeness": 1
+      },
+      "comment": "Based on the analysis of the **Contribution Tracking \u0026 Community Credits** system (Jira Key: COMM-44..."
+    },
+    {
+      "name": "Partial Name \u2014 Maintenance",
+      "passed": true,
+      "scores": {
+        "decision_quality": 1,
+        "feature_id_accuracy": 1,
+        "completeness": 1
+      },
+      "comment": "To ensure I provide the correct analysis, could you please confirm the exact feature name and Jira I..."
+    },
+    {
+      "name": "Masked Failures \u2014 Advanced Reservation",
+      "passed": true,
+      "scores": {
+        "decision_quality": 1,
+        "feature_id_accuracy": 1,
+        "completeness": 1
+      },
+      "comment": "Based on the analysis of the **Advanced Resource Reservation System** (Jira Key: PLAT-1677, ID: feat..."
+    },
+    {
+      "name": "Multiple Matches \u2014 resource",
+      "passed": true,
+      "scores": {
+        "decision_quality": 1,
+        "feature_id_accuracy": 1,
+        "completeness": 1
+      },
+      "comment": "There are a few features currently being tracked that relate to resources and equipment management. ..."
+    },
+    {
+      "name": "Non-existent Feature",
+      "passed": true,
+      "scores": {
+        "decision_quality": 1,
+        "feature_id_accuracy": 1,
+        "completeness": 1
+      },
+      "comment": "I cannot find a feature named **\u0022Blockchain Integration\u0022** in the current tracking system. \n\nHere ar..."
+    },
+    {
+      "name": "Malformed ID",
+      "passed": true,
+      "scores": {
+        "decision_quality": 1,
+        "feature_id_accuracy": 1,
+        "completeness": 1
+      },
+      "comment": "I cannot find a feature with the ID **feature-999** in the current tracking system. \n\nHere are the f..."
+    },
+    {
+      "name": "Deep Dive Analysis",
+      "passed": true,
+      "scores": {
+        "decision_quality": 1,
+        "feature_id_accuracy": 1,
+        "completeness": 1
+      },
+      "comment": "Here is a deep dive risk analysis for the **Maintenance Scheduling \u0026 Alert System** (Jira Key: PLAT-..."
+    },
+    {
+      "name": "Tool Param Check",
+      "passed": true,
+      "scores": {
+        "decision_quality": 1,
+        "feature_id_accuracy": 1,
+        "completeness": 1
+      },
+      "comment": "Here is the release summary for the **QR Code Check-in/out with Mobile App** (Jira Key: PLAT-1687, I..."
+    }
+  ]
+}
