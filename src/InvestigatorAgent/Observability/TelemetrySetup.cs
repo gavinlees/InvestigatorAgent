@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Reflection;
 using System.Text;
 using InvestigatorAgent.Configuration;
 using OpenTelemetry;
@@ -12,6 +14,11 @@ namespace InvestigatorAgent.Observability;
 /// </summary>
 public static class TelemetrySetup
 {
+    /// <summary>
+    /// The activity source for manual tracing across the Investigator Agent.
+    /// </summary>
+    public static readonly ActivitySource Source = new("InvestigatorAgent.Core");
+
     /// <summary>
     /// Configures OpenTelemetry tracing to export Semantic Kernel spans to Langfuse.
     /// </summary>

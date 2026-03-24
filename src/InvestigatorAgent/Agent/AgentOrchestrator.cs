@@ -3,8 +3,11 @@ using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.OpenAI;
 using Microsoft.SemanticKernel.Connectors.Google;
 using System.Net.Http.Headers;
+using System.Diagnostics;
+using System.Text.Json;
 using InvestigatorAgent.Persistence;
 using InvestigatorAgent.Configuration;
+using InvestigatorAgent.Observability;
 using InvestigatorAgent.Resilience;
 using Polly.Retry;
 
@@ -103,6 +106,11 @@ public sealed class AgentOrchestrator
     /// <returns>The agent's response content.</returns>
     public async Task<string> SendMessageAsync(string userMessage, double temperature = 0.0)
     {
+        using var activity = TelemetrySetup.Source.StartActivity("conversation.turn");
+        activity?.SetTag("user_message_length", userMessage.Length);
+        activity?.SetTag("history_count_before", _chatHistory.Count);
+        activity?.SetTag("model", _settings?.ModelName);
+
         Console.WriteLine($"[DEBUG] SendMessageAsync: Received user message: '{userMessage}'");
         
         await SummariseHistoryIfNecessaryAsync();
@@ -147,6 +155,9 @@ public sealed class AgentOrchestrator
             var message = result[0];
             _chatHistory.Add(message);
             
+            // Extract token usage if available (Step 6)
+            ExtractAndSetTokenUsage(activity, message);
+            
             var functionCalls = message.Items.OfType<FunctionCallContent>().ToList();
             if (functionCalls.Count == 0)
             {
@@ -182,6 +193,9 @@ public sealed class AgentOrchestrator
                 }
             }
         }
+
+        activity?.SetTag("turn_count", turnCount);
+        activity?.SetTag("history_count_after", _chatHistory.Count);
 
         if (turnCount >= MaxTurnsPerMessage && string.IsNullOrEmpty(finalResponse))
         {
@@ -274,6 +288,10 @@ public sealed class AgentOrchestrator
             return;
         }
 
+        using var activity = TelemetrySetup.Source.StartActivity("agent.summarise_history");
+        int originalCount = _chatHistory.Count;
+        activity?.SetTag("history_count_pre", originalCount);
+
         Console.WriteLine($"[DEBUG] Summarisation trigger reached (Count: {_chatHistory.Count})");
 
         // Ensure we keep at least the system message and the recent messages
@@ -293,6 +311,7 @@ public sealed class AgentOrchestrator
         if (firstRecentIndex >= _chatHistory.Count || (_chatHistory.Count - firstRecentIndex) < 2)
         {
             Console.WriteLine("[DEBUG] Summarisation skipped: Could not find valid even-length recent history starting with User.");
+            activity?.SetTag("status", "skipped");
             return;
         }
 
@@ -317,6 +336,39 @@ public sealed class AgentOrchestrator
             _chatHistory.Add(msg);
         }
 
+        activity?.SetTag("history_count_post", _chatHistory.Count);
+        activity?.SetTag("messages_summarised", toSummariseCount - 1);
         Console.WriteLine($"[DEBUG] Summarisation complete. New history count: {_chatHistory.Count}");
+    }
+
+    private void ExtractAndSetTokenUsage(Activity? activity, ChatMessageContent message)
+    {
+        if (activity == null || message.Metadata == null) return;
+
+        // Try to get token usage from common metadata keys
+        // Different connectors (Google, OpenAI, OpenRouter) use different keys
+        if (message.Metadata.TryGetValue("Usage", out object? usageObj) || 
+            message.Metadata.TryGetValue("usage", out usageObj))
+        {
+            // This is typical for OpenAI/OpenRouter
+            string json = JsonSerializer.Serialize(usageObj);
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            
+            if (root.TryGetProperty("total_tokens", out var total)) activity.SetTag("total_tokens", total.GetInt32());
+            if (root.TryGetProperty("prompt_tokens", out var prompt)) activity.SetTag("prompt_tokens", prompt.GetInt32());
+            if (root.TryGetProperty("completion_tokens", out var completion)) activity.SetTag("completion_tokens", completion.GetInt32());
+        }
+        else if (message.Metadata.TryGetValue("TokenUsage", out object? tokenUsageObj))
+        {
+            // This is sometimes used for Gemini/other connectors
+            string json = JsonSerializer.Serialize(tokenUsageObj);
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("TotalTokenCount", out var total)) activity.SetTag("total_tokens", total.GetInt32());
+            if (root.TryGetProperty("PromptTokenCount", out var prompt)) activity.SetTag("prompt_tokens", prompt.GetInt32());
+            if (root.TryGetProperty("CandidateTokenCount", out var completion)) activity.SetTag("completion_tokens", completion.GetInt32());
+        }
     }
 }

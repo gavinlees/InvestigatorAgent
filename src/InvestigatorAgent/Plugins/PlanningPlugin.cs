@@ -1,5 +1,6 @@
 using InvestigatorAgent.Utils;
 using InvestigatorAgent.Resilience;
+using InvestigatorAgent.Observability;
 using Microsoft.SemanticKernel;
 using Polly.Retry;
 using System.ComponentModel;
@@ -33,6 +34,9 @@ public sealed class PlanningPlugin
     public async Task<string> ListPlanningDocsAsync(
         [Description("The feature ID (e.g., 'feature1')")] string featureId)
     {
+        using var activity = TelemetrySetup.Source.StartActivity("tool.list_planning_docs");
+        activity?.SetTag("feature_id", featureId);
+
         var folders = _mapper.GetFeatureFolders();
         if (!folders.TryGetValue(featureId, out string? folderPath))
         {
@@ -51,6 +55,8 @@ public sealed class PlanningPlugin
                                 .Select(Path.GetFileName)
                                 .ToList();
             
+            activity?.SetTag("doc_count", files.Count);
+
             if (files.Count == 0)
             {
                 return $"No planning documents found for feature '{featureId}'.";
@@ -60,6 +66,7 @@ public sealed class PlanningPlugin
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return $"Error: Failed to list planning documents: {ex.Message}";
         }
     }
@@ -74,6 +81,10 @@ public sealed class PlanningPlugin
         [Description("The feature ID")] string featureId,
         [Description("The filename (e.g., 'USER_STORY.md')")] string docName)
     {
+        using var activity = TelemetrySetup.Source.StartActivity("tool.read_planning_doc");
+        activity?.SetTag("feature_id", featureId);
+        activity?.SetTag("doc_name", docName);
+
         var folders = _mapper.GetFeatureFolders();
         if (!folders.TryGetValue(featureId, out string? folderPath))
         {
@@ -89,10 +100,12 @@ public sealed class PlanningPlugin
         try
         {
             string content = await _retryPolicy.ExecuteAsync(async () => await File.ReadAllTextAsync(filePath));
+            activity?.SetTag("content_length", content.Length);
             return content;
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return $"Error: Failed to read planning document: {ex.Message}";
         }
     }
@@ -106,6 +119,10 @@ public sealed class PlanningPlugin
         [Description("The feature ID")] string featureId,
         [Description("The search query (term or simple regex)")] string query)
     {
+        using var activity = TelemetrySetup.Source.StartActivity("tool.search_planning_docs");
+        activity?.SetTag("feature_id", featureId);
+        activity?.SetTag("search_query", query);
+
         var folders = _mapper.GetFeatureFolders();
         if (!folders.TryGetValue(featureId, out string? folderPath))
         {
@@ -133,6 +150,7 @@ public sealed class PlanningPlugin
             using var process = Process.Start(startInfo);
             if (process == null)
             {
+                activity?.SetStatus(ActivityStatusCode.Error, "Failed to start ripgrep process.");
                 return "Error: Failed to start ripgrep process.";
             }
 
@@ -142,11 +160,13 @@ public sealed class PlanningPlugin
 
             if (process.ExitCode != 0 && !string.IsNullOrWhiteSpace(error))
             {
+                activity?.SetStatus(ActivityStatusCode.Error, $"ripgrep failed: {error}");
                 return $"Error: ripgrep failed with exit code {process.ExitCode}: {error}";
             }
 
             if (string.IsNullOrWhiteSpace(output))
             {
+                activity?.SetTag("match_count", 0);
                 return $"No matches found for '{query}' in planning documents of feature '{featureId}'.";
             }
 
@@ -169,6 +189,8 @@ public sealed class PlanningPlugin
                 }
             }
 
+            activity?.SetTag("match_count", results.Count);
+
             if (results.Count == 0)
             {
                 return $"No matches found for '{query}' in planning documents of feature '{featureId}'.";
@@ -178,6 +200,7 @@ public sealed class PlanningPlugin
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             return $"Error: Search failed: {ex.Message}";
         }
     }
