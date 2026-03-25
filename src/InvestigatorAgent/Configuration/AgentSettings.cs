@@ -32,6 +32,9 @@ public record AgentSettings
     /// <summary>Gets the optional directory path for the incoming feature data.</summary>
     public string? DataDirectory { get; init; }
 
+    /// <summary>Gets the optional Graphiti MCP URL.</summary>
+    public string? GraphitiMcpUrl { get; init; }
+
     /// <summary>Gets the Langfuse public key for telemetry.</summary>
     public string? LangfusePublicKey { get; init; }
 

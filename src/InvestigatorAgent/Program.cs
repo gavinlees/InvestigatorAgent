@@ -6,6 +6,7 @@ using InvestigatorAgent.Utils;
 using InvestigatorAgent.Observability;
 using InvestigatorAgent.Resilience;
 using InvestigatorAgent.Evaluation;
+using Microsoft.Extensions.Logging;
 using Microsoft.SemanticKernel;
 /// <summary>
 /// The entry point for the Investigator Agent CLI application.
@@ -50,6 +51,24 @@ try
     var planningPlugin = new PlanningPlugin(settings.DataDirectory ?? "incoming_data/", mapper, toolRetryPolicy);
     kernel.Plugins.AddFromObject(planningPlugin, "PlanningPlugin");
 
+    // Conditionally load Graphiti plugin if MCP URL is configured
+    GraphitiPlugin? graphitiPlugin = null;
+    if (!string.IsNullOrWhiteSpace(settings.GraphitiMcpUrl))
+    {
+        Console.WriteLine("Initializing Graphiti MCP knowledge graph connection...");
+        try
+        {
+            graphitiPlugin = await GraphitiPlugin.CreateAsync(settings.GraphitiMcpUrl, Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance);
+            kernel.Plugins.AddFromObject(graphitiPlugin, "GraphitiPlugin");
+        }
+        catch (Exception ex)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[Warning] Failed to initialize Graphiti plugin: {ex.Message}");
+            Console.ResetColor();
+        }
+    }
+
     IConversationStore conversationStore = new FileConversationStore(settings.ConversationOutputDir ?? "conversations/");
     var agent = new AgentOrchestrator(kernel, conversationStore, settings);
 
@@ -61,6 +80,34 @@ try
         bool createBaseline = args.Contains("--create-baseline");
         var evalRunner = new EvaluationRunner(agent, settings);
         await evalRunner.RunEvaluationAsync(createBaseline: createBaseline);
+        return;
+    }
+
+    // Ingestion Mode Check
+    if (args.Contains("--ingest"))
+    {
+        if (graphitiPlugin == null)
+        {
+            Console.WriteLine("Cannot ingest data: Graphiti plugin failed to initialize or GraphitiMcpUrl is missing.");
+            return;
+        }
+
+        Console.ForegroundColor = ConsoleColor.Green;
+        Console.WriteLine("Starting data ingestion into knowledge graph...");
+        Console.ResetColor();
+
+        string dataDir = settings.DataDirectory ?? "incoming_data/";
+        string[] textFiles = Directory.GetFiles(dataDir, "*.md", SearchOption.AllDirectories);
+        
+        foreach (var file in textFiles)
+        {
+            string fileName = Path.GetFileName(file);
+            Console.WriteLine($"Ingesting {fileName}...");
+            string content = await File.ReadAllTextAsync(file);
+            var result = await graphitiPlugin.AddKnowledgeAsync(fileName, content);
+            Console.WriteLine($"  -> Done.");
+        }
+        Console.WriteLine("\nIngestion complete!");
         return;
     }
 

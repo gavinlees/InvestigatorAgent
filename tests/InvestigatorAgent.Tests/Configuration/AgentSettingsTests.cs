@@ -9,6 +9,27 @@ namespace InvestigatorAgent.Tests.Configuration;
 public sealed class AgentSettingsTests : IDisposable
 {
     private readonly List<string> _setKeys = [];
+    private static readonly string[] AllConfigKeys = 
+    [
+        "OPENROUTER_API_KEY", "GOOGLE_API_KEY", "MODEL_NAME", "TEMPERATURE", 
+        "MAX_TOKENS", "TRACE_OUTPUT_DIR", "CONVERSATION_OUTPUT_DIR", 
+        "DATA_DIRECTORY", "GRAPHITI_MCP_URL", "LANGFUSE_PUBLIC_KEY", 
+        "LANGFUSE_SECRET_KEY", "LANGFUSE_BASE_URL", "CONVERSATION_SUMMARY_THRESHOLD", 
+        "CONVERSATION_SUMMARY_REMAINING", "MAX_RETRY_ATTEMPTS"
+    ];
+
+    public AgentSettingsTests()
+    {
+        ClearAllEnv();
+    }
+
+    private void ClearAllEnv()
+    {
+        foreach (var key in AllConfigKeys)
+        {
+            Environment.SetEnvironmentVariable(key, null);
+        }
+    }
 
     /// <summary>
     /// Verifies that settings load successfully when all required environment variables are present.

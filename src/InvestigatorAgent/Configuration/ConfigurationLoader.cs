@@ -71,6 +71,7 @@ public static class ConfigurationLoader
             TraceOutputDir = Environment.GetEnvironmentVariable("TRACE_OUTPUT_DIR"),
             ConversationOutputDir = Environment.GetEnvironmentVariable("CONVERSATION_OUTPUT_DIR"),
             DataDirectory = Environment.GetEnvironmentVariable("DATA_DIRECTORY"),
+            GraphitiMcpUrl = Environment.GetEnvironmentVariable("GRAPHITI_MCP_URL") ?? string.Empty,
             LangfusePublicKey = Environment.GetEnvironmentVariable("LANGFUSE_PUBLIC_KEY"),
             LangfuseSecretKey = Environment.GetEnvironmentVariable("LANGFUSE_SECRET_KEY"),
             LangfuseBaseUrl = Environment.GetEnvironmentVariable("LANGFUSE_BASE_URL"),
